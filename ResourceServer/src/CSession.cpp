@@ -109,12 +109,12 @@ void CSession::AsyncReadBody(int total_len)
 			_recv_msg_node->_data[_recv_msg_node->_total_len] = '\0';
 			cout << "receive data is " << _recv_msg_node->_data << endl;
 			// 使用 std::hash 对字符串进行哈希
-			std::hash<std::string> hash_fn;
-			size_t hash_value = hash_fn(_session_id); // 生成哈希值
-			int index = hash_value % LOGIC_WORKER_COUNT;
-			std::cout << "Hash value: " << hash_value << std::endl;
+			//std::hash<std::string> hash_fn;
+			//size_t hash_value = hash_fn(_session_id); // 生成哈希值
+			//int index = hash_value % LOGIC_WORKER_COUNT;
+			//std::cout << "Hash value: " << hash_value << std::endl;
 			//此处将消息投递到逻辑队列中
-			LogicSystem::GetInstance()->PostMsgToQue(make_shared<LogicNode>(shared_from_this(), _recv_msg_node), index);
+			LogicSystem::GetInstance()->PostTask(std::make_shared<LogicTask>(shared_from_this(), _recv_msg_node), _session_id);
 			//继续监听头部接受事件
 			AsyncReadHead(FILE_HEAD_TOTAL_LEN);
 		}
@@ -235,9 +235,4 @@ void CSession::asyncReadLen(std::size_t read_len, std::size_t total_len,
 			// 没有错误，且长度不足则继续读取
 			self->asyncReadLen(read_len + bytesTransfered, total_len, handler);
 	});
-}
-
-LogicNode::LogicNode(shared_ptr<CSession>  session, 
-	shared_ptr<RecvNode> recvnode):_session(session),_recvnode(recvnode) {
-	
 }

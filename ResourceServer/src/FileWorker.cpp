@@ -257,7 +257,7 @@ void FileWorker::RegisterHandlers()
 
 			std::string uid_ip_value = "";
 			auto receiver_str = std::to_string(task->_receiver);
-			auto uid_ip_key = USERIPPREFIX + receiver_str;
+			auto uid_ip_key = USER_IP_PREFIX + receiver_str;
 			bool b_ip = RedisMgr::GetInstance()->Get(uid_ip_key, uid_ip_value);
 			//如果接收者未登录，则直接返回
 			if (!b_ip) {
@@ -343,7 +343,7 @@ void FileWorker::RegisterHandlers()
 			MysqlMgr::GetInstance()->UpdateUploadStatus(task->_chat_msg_id);
 			std::string uid_ip_value = "";
 			auto receiver_str = std::to_string(task->_receiver);
-			auto uid_ip_key = USERIPPREFIX + receiver_str;
+			auto uid_ip_key = USER_IP_PREFIX + receiver_str;
 			bool b_ip = RedisMgr::GetInstance()->Get(uid_ip_key, uid_ip_value);
 			//如果接收者未登录，则直接返回
 			if (!b_ip) {
@@ -430,7 +430,7 @@ void FileWorker::RegisterHandlers()
 
 			std::string uid_ip_value = "";
 			auto receiver_str = std::to_string(task->_receiver);
-			auto uid_ip_key = USERIPPREFIX + receiver_str;
+			auto uid_ip_key = USER_IP_PREFIX + receiver_str;
 			bool b_ip = RedisMgr::GetInstance()->Get(uid_ip_key, uid_ip_value);
 			//如果接收者未登录，则直接返回
 			if (!b_ip) {

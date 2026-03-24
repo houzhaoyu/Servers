@@ -123,7 +123,7 @@ LogicSystem::LogicSystem() {
 
 		//先查找redis中email对应的验证码是否合理
 		std::string  Verify_code;
-		bool b_get_Verify = RedisMgr::GetInstance()->Get(CODEPREFIX + src_root["email"].asString(), Verify_code);
+		bool b_get_Verify = RedisMgr::GetInstance()->Get(CODE_PREFIX + src_root["email"].asString(), Verify_code);
 		if (!b_get_Verify) {
 			std::cout << " get Verify code expired" << std::endl;
 			root["error"] = ErrorCodes::VerifyExpired;
@@ -185,7 +185,7 @@ LogicSystem::LogicSystem() {
 
 		//先查找redis中email对应的验证码是否合理
 		std::string  Verify_code;
-		bool b_get_Verify = RedisMgr::GetInstance()->Get(CODEPREFIX + src_root["email"].asString(), Verify_code);
+		bool b_get_Verify = RedisMgr::GetInstance()->Get(CODE_PREFIX + src_root["email"].asString(), Verify_code);
 		if (!b_get_Verify) {
 			std::cout << " get Verify code expired" << std::endl;
 			root["error"] = ErrorCodes::VerifyExpired;

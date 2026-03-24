@@ -15,18 +15,18 @@ public:
 	~CServer();
 	void RemoveSession(std::string);
 	//根据uid获取session
-	shared_ptr<CSession> GetSession(std::string);
+	std::shared_ptr<CSession> GetSession(std::string);
 	bool CheckValid(std::string);
 	void on_timer(const boost::system::error_code& ec);
 	void StartTimer();
 	void StopTimer();
 private:
-	void HandleAccept(shared_ptr<CSession>, const boost::system::error_code & error);
+	void HandleAccept(std::shared_ptr<CSession>, const boost::system::error_code & error);
 	void StartAccept();
 	boost::asio::io_context &_io_context;
 	unsigned int _port;
 	tcp::acceptor _acceptor;
-	std::map<std::string, shared_ptr<CSession>> _sessions;
+	std::map<std::string, std::shared_ptr<CSession>> _sessions;
 	std::mutex _mutex;
 	boost::asio::steady_timer _timer;
 };

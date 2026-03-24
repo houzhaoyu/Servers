@@ -232,7 +232,7 @@ Status ChatServiceImpl::NotifyKickUser(::grpc::ServerContext* context,
 	//在内存中则直接发送通知对方
 	session->NotifyOffline(uid);
 	//清除旧的连接
-	_p_server->ClearSession(session->GetSessionId());
+	_p_server->RemoveSession(session->GetSessionId());
 
 	return Status::OK;
 }

@@ -1,30 +1,23 @@
-#pragma once
+#include "BaseLogic.h"
 #include "Singleton.h"
-#include <queue>
-#include <thread>
 #include "CSession.h"
-#include <map>
-#include <functional>
-#include "const.h"
-#include <jsoncpp/json/json.h>
-#include <jsoncpp/json/json-forwards.h>
-#include <unordered_map>
+#include "CServer.h"
 #include "data.h"
 
-class CServer;
-typedef  function<void(shared_ptr<CSession>, const short& msg_id, const string& msg_data)> FunCallBack;
-class LogicSystem :public Singleton<LogicSystem>
-{
-	friend class Singleton<LogicSystem>;
+class LogicSystem : public BaseLogic, public Singleton<LogicSystem> {
+    friend class Singleton<LogicSystem>;
 public:
-	~LogicSystem();
-	void PostMsgToQue(shared_ptr < LogicNode> msg);
 	void SetServer(std::shared_ptr<CServer> pserver);
+
+protected:
+    // 实现基类的注册接口
+	void RegisterHandlers() override;
+
 private:
-	LogicSystem();
-	void DealMsg();
-	void RegisterCallBacks();
-	void LoginHandler(shared_ptr<CSession> session, const short& msg_id, const string& msg_data);
+	LogicSystem() : BaseLogic(1) { RegisterHandlers(); Start(); }
+
+	// 只需要保留业务相关的函数声明
+	void LoginHandler(std::shared_ptr<CSession> session, const short& msg_id, const string& msg_data);
 	void SearchInfo(std::shared_ptr<CSession> session, const short& msg_id, const string& msg_data);
 	void AddFriendApply(std::shared_ptr<CSession> session, const short& msg_id, const string& msg_data);
 	void AuthFriendApply(std::shared_ptr<CSession> session, const short& msg_id, const string& msg_data);
@@ -46,12 +39,6 @@ private:
 		int& nextLastId);
 	void CreatePrivateChat(std::shared_ptr<CSession> session, const short& msg_id, const string& msg_data);
 	void LoadChatMsg(std::shared_ptr<CSession> session, const short& msg_id, const string& msg_data);
-	std::thread _worker_thread;
-	std::queue<shared_ptr<LogicNode>> _msg_que;
-	std::mutex _mutex;
-	std::condition_variable _consume;
-	bool _b_stop;
-	std::map<short, FunCallBack> _fun_callbacks;
+
 	std::shared_ptr<CServer> _p_server;
 };
-

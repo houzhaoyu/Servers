@@ -121,7 +121,7 @@ void CSession::AsyncReadBody(int total_len)
 			//更新session心跳时间
 			UpdateHeartbeat();
 			//此处将消息投递到逻辑队列中
-			LogicSystem::GetInstance()->PostMsgToQue(make_shared<LogicNode>(shared_from_this(), _recv_msg_node));
+			LogicSystem::GetInstance()->PostTask(std::make_shared<LogicTask>(shared_from_this(), _recv_msg_node));
 			//继续监听头部接受事件
 			AsyncReadHead(CHAT_HEAD_TOTAL_LEN);
 		}
@@ -263,12 +263,6 @@ void CSession::NotifyOffline(int uid) {
 	Send(return_str, ID_NOTIFY_OFF_LINE_REQ);
 	return;
 }
-
-LogicNode::LogicNode(shared_ptr<CSession>  session, 
-	shared_ptr<RecvNode> recvnode):_session(session),_recvnode(recvnode) {
-	
-}
-
 
 bool CSession::IsHeartbeatExpired(std::time_t& now) {
 	double diff_sec = std::difftime(now, _last_heartbeat);

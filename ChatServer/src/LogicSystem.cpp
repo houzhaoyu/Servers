@@ -11,102 +11,39 @@
 #include "utils.h"
 #include "data.h"
 
-LogicSystem::LogicSystem() :_b_stop(false), _p_server(nullptr) {
-	RegisterCallBacks();
-	_worker_thread = std::thread(&LogicSystem::DealMsg, this);
-}
-
-LogicSystem::~LogicSystem() {
-	_b_stop = true;
-	_consume.notify_one();
-	_worker_thread.join();
-}
-
-void LogicSystem::PostMsgToQue(shared_ptr < LogicNode> msg) {
-	std::unique_lock<std::mutex> unique_lk(_mutex);
-	_msg_que.push(msg);
-	//由0变为1则发送通知信号
-	if (_msg_que.size() == 1) {
-		unique_lk.unlock();
-		_consume.notify_one();
-	}
-}
-
-
 void LogicSystem::SetServer(std::shared_ptr<CServer> pserver) {
 	_p_server = pserver;
 }
 
+void LogicSystem::RegisterHandlers() {
+	_handlers[ID_CHAT_LOGIN] = std::bind(&LogicSystem::LoginHandler, this,
+		std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
-void LogicSystem::DealMsg() {
-	for (;;) {
-		std::unique_lock<std::mutex> unique_lk(_mutex);
-		//判断队列为空则用条件变量阻塞等待，并释放锁
-		while (_msg_que.empty() && !_b_stop) {
-			_consume.wait(unique_lk);
-		}
-
-		//判断是否为关闭状态，把所有逻辑执行完后则退出循环
-		if (_b_stop) {
-			while (!_msg_que.empty()) {
-				auto msg_node = _msg_que.front();
-				cout << "recv_msg id  is " << msg_node->_recvnode->_msg_id << endl;
-				auto call_back_iter = _fun_callbacks.find(msg_node->_recvnode->_msg_id);
-				if (call_back_iter == _fun_callbacks.end()) {
-					_msg_que.pop();
-					continue;
-				}
-				call_back_iter->second(msg_node->_session, msg_node->_recvnode->_msg_id,
-					std::string(msg_node->_recvnode->_data, msg_node->_recvnode->_cur_len));
-				_msg_que.pop();
-			}
-			break;
-		}
-
-		//如果没有停服，且说明队列中有数据
-		auto msg_node = _msg_que.front();
-		cout << "recv_msg id  is " << msg_node->_recvnode->_msg_id << endl;
-		auto call_back_iter = _fun_callbacks.find(msg_node->_recvnode->_msg_id);
-		if (call_back_iter == _fun_callbacks.end()) {
-			_msg_que.pop();
-			std::cout << "msg id [" << msg_node->_recvnode->_msg_id << "] handler not found" << std::endl;
-			continue;
-		}
-		call_back_iter->second(msg_node->_session, msg_node->_recvnode->_msg_id,
-			std::string(msg_node->_recvnode->_data, msg_node->_recvnode->_cur_len));
-		_msg_que.pop();
-	}
-}
-
-void LogicSystem::RegisterCallBacks() {
-	_fun_callbacks[ID_CHAT_LOGIN] = std::bind(&LogicSystem::LoginHandler, this,
+	_handlers[ID_SEARCH_USER_REQ] = std::bind(&LogicSystem::SearchInfo, this,
 		placeholders::_1, placeholders::_2, placeholders::_3);
 
-	_fun_callbacks[ID_SEARCH_USER_REQ] = std::bind(&LogicSystem::SearchInfo, this,
+	_handlers[ID_ADD_FRIEND_REQ] = std::bind(&LogicSystem::AddFriendApply, this,
 		placeholders::_1, placeholders::_2, placeholders::_3);
 
-	_fun_callbacks[ID_ADD_FRIEND_REQ] = std::bind(&LogicSystem::AddFriendApply, this,
+	_handlers[ID_AUTH_FRIEND_REQ] = std::bind(&LogicSystem::AuthFriendApply, this,
 		placeholders::_1, placeholders::_2, placeholders::_3);
 
-	_fun_callbacks[ID_AUTH_FRIEND_REQ] = std::bind(&LogicSystem::AuthFriendApply, this,
+	_handlers[ID_TEXT_CHAT_MSG_REQ] = std::bind(&LogicSystem::DealChatTextMsg, this,
 		placeholders::_1, placeholders::_2, placeholders::_3);
 
-	_fun_callbacks[ID_TEXT_CHAT_MSG_REQ] = std::bind(&LogicSystem::DealChatTextMsg, this,
+	_handlers[ID_HEART_BEAT_REQ] = std::bind(&LogicSystem::HeartBeatHandler, this,
 		placeholders::_1, placeholders::_2, placeholders::_3);
 
-	_fun_callbacks[ID_HEART_BEAT_REQ] = std::bind(&LogicSystem::HeartBeatHandler, this,
+	_handlers[ID_LOAD_CHAT_THREAD_REQ] = std::bind(&LogicSystem::GetUserThreadsHandler, this,
 		placeholders::_1, placeholders::_2, placeholders::_3);
 
-	_fun_callbacks[ID_LOAD_CHAT_THREAD_REQ] = std::bind(&LogicSystem::GetUserThreadsHandler, this,
+	_handlers[ID_CREATE_PRIVATE_CHAT_REQ] = std::bind(&LogicSystem::CreatePrivateChat, this,
 		placeholders::_1, placeholders::_2, placeholders::_3);
 
-	_fun_callbacks[ID_CREATE_PRIVATE_CHAT_REQ] = std::bind(&LogicSystem::CreatePrivateChat, this,
+	_handlers[ID_LOAD_CHAT_MSG_REQ] = std::bind(&LogicSystem::LoadChatMsg, this,
 		placeholders::_1, placeholders::_2, placeholders::_3);
 
-	_fun_callbacks[ID_LOAD_CHAT_MSG_REQ] = std::bind(&LogicSystem::LoadChatMsg, this,
-		placeholders::_1, placeholders::_2, placeholders::_3);
-
-	_fun_callbacks[ID_IMG_CHAT_MSG_REQ] = std::bind(&LogicSystem::DealChatImgMsg, this,
+	_handlers[ID_IMG_CHAT_MSG_REQ] = std::bind(&LogicSystem::DealChatImgMsg, this,
 		placeholders::_1, placeholders::_2, placeholders::_3);
 }
 
@@ -206,7 +143,7 @@ void LogicSystem::LoginHandler(shared_ptr<CSession> session, const short& msg_id
 		//此处判断该用户是否在别处或者本服务器登录
 
 		std::string uid_ip_value = "";
-		auto uid_ip_key = USERIPPREFIX + uid_str;
+		auto uid_ip_key = USER_IP_PREFIX + uid_str;
 		bool b_ip = RedisMgr::GetInstance()->Get(uid_ip_key, uid_ip_value);
 		//说明用户已经登录了，此处应该踢掉之前的用户登录状态
 		if (b_ip) {
@@ -222,7 +159,7 @@ void LogicSystem::LoginHandler(shared_ptr<CSession> session, const short& msg_id
 				if (old_session) {
 					old_session->NotifyOffline(uid);
 					//清除旧的连接
-					_p_server->ClearSession(old_session->GetSessionId());
+					_p_server->RemoveSession(old_session->GetSessionId());
 				}
 
 			}
@@ -238,7 +175,7 @@ void LogicSystem::LoginHandler(shared_ptr<CSession> session, const short& msg_id
 		//session绑定用户uid
 		session->SetUserId(uid);
 		//为用户设置登录ip server的名字
-		std::string  ipkey = USERIPPREFIX + uid_str;
+		std::string  ipkey = USER_IP_PREFIX + uid_str;
 		RedisMgr::GetInstance()->Set(ipkey, server_name);
 		//uid和session绑定管理,方便以后踢人操作
 		UserMgr::GetInstance()->SetUserSession(uid, session);
@@ -299,7 +236,7 @@ void LogicSystem::AddFriendApply(std::shared_ptr<CSession> session, const short&
 
 	//查询redis 查找touid对应的server ip
 	auto to_str = std::to_string(touid);
-	auto to_ip_key = USERIPPREFIX + to_str;
+	auto to_ip_key = USER_IP_PREFIX + to_str;
 	std::string to_ip_value = "";
 	bool b_ip = RedisMgr::GetInstance()->Get(to_ip_key, to_ip_value);
 	if (!b_ip) {
@@ -398,7 +335,7 @@ void LogicSystem::AuthFriendApply(std::shared_ptr<CSession> session, const short
 
 	//查询redis 查找touid对应的server ip
 	auto to_str = std::to_string(touid);
-	auto to_ip_key = USERIPPREFIX + to_str;
+	auto to_ip_key = USER_IP_PREFIX + to_str;
 	std::string to_ip_value = "";
 	bool b_ip = RedisMgr::GetInstance()->Get(to_ip_key, to_ip_value);
 	if (!b_ip) {
@@ -532,7 +469,7 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session, const short
 
 	//查询redis 查找touid对应的server ip
 	auto to_str = std::to_string(touid);
-	auto to_ip_key = USERIPPREFIX + to_str;
+	auto to_ip_key = USER_IP_PREFIX + to_str;
 	std::string to_ip_value = "";
 	bool b_ip = RedisMgr::GetInstance()->Get(to_ip_key, to_ip_value);
 	if (!b_ip) {
