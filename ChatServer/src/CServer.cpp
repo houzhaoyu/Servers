@@ -1,3 +1,4 @@
+//ChatServer
 #include "CServer.h"
 #include <iostream>
 #include "AsioIOContextPool.h"
@@ -5,27 +6,31 @@
 #include "RedisMgr.h"
 #include "ConfigMgr.h"
 
-CServer::CServer(boost::asio::io_context& io_context, unsigned int port):_io_context(io_context), _port(port),
-_acceptor(io_context, tcp::endpoint(tcp::v4(),port)), _timer(_io_context, std::chrono::seconds(HEARTBEAT_INTERVAL))
+CServer::CServer(boost::asio::io_context& io_context, unsigned int port, TaskDelivery task_delivery):
+	_io_context(io_context), 
+	_port(port), 
+	_acceptor(io_context, tcp::endpoint(tcp::v4(),port)),
+	_timer(_io_context, std::chrono::seconds(HEARTBEAT_INTERVAL)),
+	_task_delivery(task_delivery)
 {
-	cout << "Server start success, listen on port : " << _port << endl;
+	std::cout << "Server start success, listen on port : " << _port << std::endl;
 
 	StartAccept();
 }
 
 CServer::~CServer() {
-	cout << "Server destruct listen on port : " << _port << endl;
+	std::cout << "Server destruct listen on port : " << _port << std::endl;
 	
 }
 
-void CServer::HandleAccept(shared_ptr<CSession> new_session, const boost::system::error_code& error){
+void CServer::HandleAccept(std::shared_ptr<ChatSession> new_session, const boost::system::error_code& error){
 	if (!error) {
 		new_session->Start();
 		std::lock_guard<std::mutex> lock(_mutex);
-		_sessions.insert(make_pair(new_session->GetSessionId(), new_session));
+		_sessions.insert(std::make_pair(new_session->GetSessionId(), new_session));
 	}
 	else {
-		cout << "session accept failed, error is " << error.what() << endl;
+		std::cout << "session accept failed, error is " << error.what() << std::endl;
 	}
 
 	StartAccept();
@@ -33,8 +38,10 @@ void CServer::HandleAccept(shared_ptr<CSession> new_session, const boost::system
 
 void CServer::StartAccept() {
 	auto &io_context = AsioIOContextPool::GetInstance()->GetIOContext();
-	std::shared_ptr<CSession> new_session = make_shared<CSession>(io_context, this);
-	_acceptor.async_accept(new_session->GetSocket(), std::bind(&CServer::HandleAccept, this, new_session, placeholders::_1));
+	std::shared_ptr<ChatSession> new_session = std::make_shared<ChatSession>(io_context, _task_delivery, 
+		[this](const std::string& session_id) { return this->CheckValid(session_id); },
+		[this](const std::string& session_id) { this->RemoveSession(session_id); });
+	_acceptor.async_accept(new_session->GetSocket(), std::bind(&CServer::HandleAccept, this, new_session, std::placeholders::_1));
 }
 
 //根据session 的id删除session，并移除用户和session的关联
@@ -53,19 +60,19 @@ void CServer::RemoveSession(std::string session_id) {
 }
 
 //根据用户获取session
-shared_ptr<CSession> CServer::GetSession(std::string uuid) {
-	lock_guard<mutex> lock(_mutex);
-	auto it = _sessions.find(uuid);
+std::shared_ptr<ChatSession> CServer::GetSessionBySessionId(std::string session_id) {
+	std::lock_guard<std::mutex> lock(_mutex);
+	auto it = _sessions.find(session_id);
 	if (it != _sessions.end()) {
 		return it->second;
 	}
 	return nullptr;
 }
 
-bool CServer::CheckValid(std::string uuid)
+bool CServer::CheckValid(std::string session_id)
 {
-	lock_guard<mutex> lock(_mutex);
-	auto it = _sessions.find(uuid);
+	std::lock_guard<std::mutex> lock(_mutex);
+	auto it = _sessions.find(session_id);
 	if (it != _sessions.end()) {
 		return true;
 	}
@@ -77,12 +84,12 @@ void CServer::on_timer(const boost::system::error_code& ec) {
 		std::cout << "timer error: " << ec.message() << std::endl;
 		return;
 	}
-	std::vector<std::shared_ptr<CSession>> _expired_sessions;
+	std::vector<std::shared_ptr<ChatSession>> _expired_sessions;
 	int session_count = 0;
 	//此处加锁遍历session
-	std::map<std::string, shared_ptr<CSession>> sessions_copy;
+	std::map<std::string, std::shared_ptr<ChatSession>> sessions_copy;
 	{
-		lock_guard<mutex> lock(_mutex);
+		std::lock_guard<std::mutex> lock(_mutex);
 		sessions_copy = _sessions;
 	}
 

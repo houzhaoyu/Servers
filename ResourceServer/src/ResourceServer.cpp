@@ -7,7 +7,6 @@
 #include "ConfigMgr.h"
 #include <boost/filesystem.hpp>
 
-using namespace std;
 bool bstop = false;
 std::condition_variable cond_quit;
 std::mutex mutex_quit;
@@ -28,14 +27,15 @@ int main()
 			pool->Stop();
 			});
 		auto port_str = cfg["ResourceServer"]["Port"];
-		CServer s(io_context, atoi(port_str.c_str()));
+		auto handler = std::bind(&LogicSystem::PostTask, LogicSystem::GetInstance().get(), std::placeholders::_1, std::placeholders::_2);
+		CServer s(io_context, atoi(port_str.c_str()), handler);
 		io_context.run();
 	}
 	catch (std::exception& e) {
 		if (pool) {
 			pool->Stop();
 		}
-		std::cerr << "Exception: " << e.what() << endl;
+		std::cerr << "Exception: " << e.what() << std::endl;
 	}
 
 }

@@ -3,19 +3,21 @@
 #include "const.h"
 #include <iostream>
 #include <boost/asio.hpp>
-using namespace std;
+
+#include <functional>
+
 using boost::asio::ip::tcp;
 
 class MsgNode
 {
 public:
-	MsgNode(short max_len) :_total_len(max_len), _cur_len(0) {
+	MsgNode(int max_len) :_total_len(max_len), _cur_len(0) {
 		_data = new char[_total_len + 1]();
 		_data[_total_len] = '\0';
 	}
 
 	~MsgNode() {
-		std::cout << "destruct MsgNode" << endl;
+		std::cout << "destruct MsgNode" << std::endl;
 		delete[] _data;
 	}
 
@@ -24,21 +26,53 @@ public:
 		_cur_len = 0;
 	}
 
-	short _cur_len;
-	short _total_len;
+	int _cur_len;
+	int _total_len;
 	char* _data;
 };
 
-class RecvNode :public MsgNode {
-
+class RecvNode : public MsgNode
+{
 public:
-	RecvNode(short max_len, short msg_id);
+	RecvNode(int len, short msg_id)
+		: MsgNode(len), _msg_id(msg_id) {
+	}
+
 	short _msg_id;
 };
 
-class SendNode:public MsgNode {
+template<typename Protocol>
+class SendNodeT : public MsgNode
+{
 public:
-	SendNode(const char* msg,short max_len, short msg_id);
+	SendNodeT(const char* msg, int len, short msg_id)
+		: MsgNode(len + Protocol::HEAD_LEN), _msg_id(msg_id)
+	{
+		Protocol::Encode(_data, msg_id, len);
+		memcpy(_data + Protocol::HEAD_LEN, msg, len);
+	}
+
 	short _msg_id;
 };
 
+using ChatSendNode = SendNodeT<ChatProtocol>;
+using FileSendNode = SendNodeT<FileProtocol>;
+
+class BaseSession;
+
+struct LogicTask {
+	std::shared_ptr<BaseSession> session;
+	std::shared_ptr<RecvNode> recvnode;
+
+	LogicTask(std::shared_ptr<BaseSession> s,
+		std::shared_ptr<RecvNode> n)
+		: session(s), recvnode(n) {
+	}
+};
+
+typedef std::function<void(std::shared_ptr<BaseSession>, const short&, const std::string&)> LogicHandler;
+
+using TaskDelivery = std::function<void(std::shared_ptr<LogicTask>, const std::string&)>;
+
+using CheckSessionValidHandler = std::function<bool(const std::string&)>;
+using RemoveSessionHandler = std::function<void(const std::string&)>;

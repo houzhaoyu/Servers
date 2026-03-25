@@ -1,5 +1,5 @@
 #include "UserMgr.h"
-#include "CSession.h"
+#include "FileSession.h"
 #include "RedisMgr.h"
 
 UserMgr:: ~ UserMgr(){
@@ -7,7 +7,7 @@ UserMgr:: ~ UserMgr(){
 }
 
 
-std::shared_ptr<CSession> UserMgr::GetSession(int uid)
+std::shared_ptr<FileSession> UserMgr::GetSession(int uid)
 {
 	std::lock_guard<std::mutex> lock(_session_mtx);
 	auto iter = _uid_to_session.find(uid);
@@ -18,7 +18,7 @@ std::shared_ptr<CSession> UserMgr::GetSession(int uid)
 	return iter->second;
 }
 
-void UserMgr::SetUserSession(int uid, std::shared_ptr<CSession> session)
+void UserMgr::SetUserSession(int uid, std::shared_ptr<FileSession> session)
 {
 	std::lock_guard<std::mutex> lock(_session_mtx);
 	_uid_to_session[uid] = session;

@@ -11,9 +11,9 @@
 #include "const.h"
 #include <unordered_map>
 
-class CSession;
+class FileSession;
 struct FileTask {
-	FileTask(std::shared_ptr<CSession> session, MSG_IDS msg_id, int uid, std::string path, std::string name,
+	FileTask(std::shared_ptr<FileSession> session, MSG_IDS msg_id, int uid, std::string path, std::string name,
 		int seq, int total_size, int trans_size, int last,
 		std::string file_data,
 		std::function<void(const Json::Value&)> callback, int chat_msg_id = 0,
@@ -24,7 +24,7 @@ struct FileTask {
 	{
 	}
 	~FileTask() {}
-	std::shared_ptr<CSession> _session;
+	std::shared_ptr<FileSession> _session;
 	MSG_IDS _msg_id;
 	int _uid;
 	int _seq;
@@ -43,14 +43,14 @@ struct FileTask {
 
 
 struct DownloadTask {
-	DownloadTask(std::shared_ptr<CSession> session, int uid, std::string name,
+	DownloadTask(std::shared_ptr<FileSession> session, int uid, std::string name,
 		int seq, std::string file_path,
 		std::function<void(const Json::Value&)> callback) :_session(session), _uid(uid),
 		_seq(seq), _name(name), _file_path(file_path), _callback(callback)
 	{
 	}
 	~DownloadTask() {}
-	std::shared_ptr<CSession> _session;
+	std::shared_ptr<FileSession> _session;
 	int _uid;
 	int _seq;
 	std::string _name;

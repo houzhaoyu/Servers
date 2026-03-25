@@ -9,7 +9,6 @@
 #include "Defer.h"
 #include "ChatServiceImpl.h"
 
-using namespace std;
 bool bstop = false;
 std::condition_variable cond_quit;
 std::mutex mutex_quit;
@@ -52,7 +51,8 @@ int main(int argc, char* argv[])
         boost::asio::io_context  io_context;
         auto port_str = cfg[serverName]["Port"];
         //创建Cserver智能指针
-        auto pointer_server = std::make_shared<CServer>(io_context, atoi(port_str.c_str()));
+        auto handler = std::bind(&LogicSystem::PostTask, LogicSystem::GetInstance().get(), std::placeholders::_1, std::placeholders::_2);
+        auto pointer_server = std::make_shared<CServer>(io_context, atoi(port_str.c_str()), handler);
         //定义一个GrpcServer
         std::string server_address(cfg[serverName]["Host"] + ":" + cfg[serverName]["RPCPort"]);
         ChatServiceImpl service;
@@ -84,6 +84,6 @@ int main(int argc, char* argv[])
         grpc_server_thread.join();
     }
     catch (std::exception& e) {
-        std::cerr << "Exception: " << e.what() << endl;
+        std::cerr << "Exception: " << e.what() << std::endl;
     }
 }

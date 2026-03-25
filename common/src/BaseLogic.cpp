@@ -1,5 +1,4 @@
 #include "BaseLogic.h"
-#include "CSession.h"
 
 // 构造函数现在只初始化基础变量，不启动线程
 BaseLogic::BaseLogic(int thread_count) : _b_stop(false) {

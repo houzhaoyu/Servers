@@ -60,30 +60,6 @@ enum ErrorCodes {
 	FileSaveRedisFailed = 1024, //文件存储redis失败
 };
 
-//头部id长度
-#define HEAD_ID_LEN 2
-//聊天服务器消息头
-//头部总长度
-#define CHAT_HEAD_TOTAL_LEN 4
-//头部数据长度
-#define CHAT_HEAD_DATA_LEN 2
-
-#define CHAT_MAX_LENGTH  1024*2
-
-#define CHAT_MAX_RECVQUE  10000
-#define CHAT_MAX_SENDQUE 1000
-
-//资源服务器消息头
-//头部总长度
-#define FILE_HEAD_TOTAL_LEN 6
-//头部数据长度
-#define FILE_HEAD_DATA_LEN 4
-
-#define FILE_MAX_LENGTH 1024 * 50
-
-#define FILE_MAX_RECVQUE 2000000
-#define FILE_MAX_SENDQUE 2000000
-
 enum MSG_IDS {
     ID_GET_VERIFY_CODE = 1001, //获取验证码
     ID_REG_USER = 1002, //注册用户
@@ -167,4 +143,66 @@ enum MsgStatus {
 	SEND_FAILED = 1,  //发送失败
 	READED = 2,  //对方已读
 	UN_UPLOAD = 3 //未上传完成
+};
+
+//头部id长度
+#define HEAD_ID_LEN 2
+//聊天服务器消息头
+//头部总长度
+#define CHAT_HEAD_TOTAL_LEN 4
+//头部数据长度
+#define CHAT_HEAD_DATA_LEN 2
+
+#define CHAT_MAX_LENGTH  1024*2
+
+#define CHAT_MAX_RECVQUE  10000
+#define CHAT_MAX_SENDQUE 1000
+
+//资源服务器消息头
+//头部总长度
+#define FILE_HEAD_TOTAL_LEN 6
+//头部数据长度
+#define FILE_HEAD_DATA_LEN 4
+
+#define FILE_MAX_LENGTH 1024 * 50
+
+#define FILE_MAX_RECVQUE 2000000
+#define FILE_MAX_SENDQUE 2000000
+
+struct ChatProtocol {
+	using LenType = short;
+
+	static constexpr int HEAD_LEN = CHAT_HEAD_TOTAL_LEN;
+	//static constexpr int HEAD_ID_LEN = HEAD_ID_LEN;
+	static constexpr int HEAD_DATA_LEN = CHAT_HEAD_DATA_LEN;
+	static constexpr int MAX_LEN = CHAT_MAX_LENGTH;
+	static constexpr int MAX_RECV_QUE = CHAT_MAX_RECVQUE;
+	static constexpr int MAX_SEND_QUE = CHAT_MAX_SENDQUE;
+
+	static void Encode(char* data, short msg_id, int len) {
+		short id = boost::asio::detail::socket_ops::host_to_network_short(msg_id);
+		short l = boost::asio::detail::socket_ops::host_to_network_short(len);
+
+		memcpy(data, &id, HEAD_ID_LEN);
+		memcpy(data + HEAD_ID_LEN, &l, HEAD_DATA_LEN);
+	}
+};
+
+struct FileProtocol {
+	using LenType = int;
+
+	static constexpr int HEAD_LEN = FILE_HEAD_TOTAL_LEN;
+	//static constexpr int HEAD_ID_LEN = HEAD_ID_LEN;
+	static constexpr int HEAD_DATA_LEN = FILE_HEAD_DATA_LEN;
+	static constexpr int MAX_LEN = FILE_MAX_LENGTH;
+	static constexpr int MAX_RECV_QUE = FILE_MAX_RECVQUE;
+	static constexpr int MAX_SEND_QUE = FILE_MAX_SENDQUE;
+
+	static void Encode(char* data, short msg_id, int len) {
+		short id = boost::asio::detail::socket_ops::host_to_network_short(msg_id);
+		int l = boost::asio::detail::socket_ops::host_to_network_long(len);
+
+		memcpy(data, &id, HEAD_ID_LEN);
+		memcpy(data + HEAD_ID_LEN, &l, HEAD_DATA_LEN);
+	}
 };

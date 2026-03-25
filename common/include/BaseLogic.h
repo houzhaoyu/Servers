@@ -9,15 +9,6 @@
 #include <map>
 #include "MsgNode.h"
 
-class CSession;
-struct LogicTask {
-    std::shared_ptr<CSession> session;
-    std::shared_ptr<RecvNode> recvnode;
-    LogicTask(std::shared_ptr<CSession> s, std::shared_ptr<RecvNode> n) : session(s), recvnode(n) {}
-};
-
-typedef std::function<void(std::shared_ptr<CSession>, const short&, const std::string&)> LogicHandler;
-
 class BaseLogic {
 public:
     // 构造时指定线程数

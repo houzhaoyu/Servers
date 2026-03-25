@@ -38,7 +38,7 @@ add_custom_command(
 )
 
 # 5. 编译静态库
-add_library(common STATIC ${COMMON_SRC} ${PROTO_GEN_FILES})
+add_library(common STATIC ${COMMON_SRC} ${PROTO_GEN_FILES} "src/BaseSession.cpp" "include/BaseLogic.h" "src/BaseLogic.cpp")
 
 # 6. 导出路径
 target_include_directories(common PUBLIC 

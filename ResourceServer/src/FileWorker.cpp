@@ -1,5 +1,5 @@
 #include "FileWorker.h"
-#include "CSession.h"
+#include "FileSession.h"
 #include <json/json.h>
 #include "jsoncpp/json/json.h"
 #include "jsoncpp/json/json-forwards.h"
