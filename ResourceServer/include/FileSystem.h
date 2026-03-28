@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Singleton.h"
 #include "FileWorker.h"
 #include <memory>
@@ -16,5 +16,6 @@ private:
 	std::vector<std::shared_ptr<FileWorker>>  _file_workers;
 	std::vector<std::shared_ptr<DownloadWorker>> _down_load_worker;
 };
+
 
 

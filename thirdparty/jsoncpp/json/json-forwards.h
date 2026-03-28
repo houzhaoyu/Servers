@@ -1,4 +1,4 @@
-/// Json-cpp amalgamated forward header (https://github.com/open-source-parsers/jsoncpp/).
+﻿/// Json-cpp amalgamated forward header (https://github.com/open-source-parsers/jsoncpp/).
 /// It is intended to be used with #include "json/json-forwards.h"
 /// This header provides forward declaration for all JsonCpp types.
 
@@ -446,3 +446,4 @@ class ValueConstIterator;
 
 
 #endif //ifndef JSON_FORWARD_AMALGAMATED_H_INCLUDED
+

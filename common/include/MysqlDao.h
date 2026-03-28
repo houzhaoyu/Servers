@@ -273,3 +273,4 @@ private:
 	std::unique_ptr<MySqlPool> pool_;
 };
 
+

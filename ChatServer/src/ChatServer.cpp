@@ -8,6 +8,7 @@
 #include "RedisMgr.h"
 #include "Defer.h"
 #include "ChatServiceImpl.h"
+#include "Logger.h"
 
 bool bstop = false;
 std::condition_variable cond_quit;
@@ -38,6 +39,7 @@ int main(int argc, char* argv[])
     {
         port_str = cfg[serverName]["Port"];
     }
+    Logger::Init(serverName);
 
     try {
         auto pool = AsioIOContextPool::GetInstance();
@@ -63,7 +65,7 @@ int main(int argc, char* argv[])
         service.RegisterServer(pointer_server);
         // 构建并启动gRPC服务器
         std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-        std::cout << "RPC Server listening on " << server_address << std::endl;
+        Logger::Info("RPC Server listening on {}", server_address);
 
         //单独启动一个线程处理grpc服务
         std::thread  grpc_server_thread([&server]() {
@@ -84,6 +86,7 @@ int main(int argc, char* argv[])
         grpc_server_thread.join();
     }
     catch (std::exception& e) {
-        std::cerr << "Exception: " << e.what() << std::endl;
+        //std::cerr << "Exception: " << e.what() << std::endl;
+        Logger::Error("Exception : {}", e.what());
     }
 }

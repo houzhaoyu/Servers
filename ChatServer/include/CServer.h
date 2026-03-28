@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 //ChatServer
 #include <boost/asio.hpp>
 #include "ChatSession.h"
@@ -16,7 +16,7 @@ public:
 	CServer(boost::asio::io_context& io_context, unsigned int port, TaskDelivery task_delivery);
 	~CServer();
 	void RemoveSession(std::string);
-	//¸ù¾İsession_id»ñÈ¡session
+	//æ ¹æ®session_idè·å–session
 	std::shared_ptr<ChatSession> GetSessionBySessionId(std::string);
 	TaskDelivery GetTaskDelivery() const { return _task_delivery; }
 	bool CheckValid(std::string);
@@ -29,10 +29,11 @@ private:
 	boost::asio::io_context &_io_context;
 	unsigned int _port;
 	tcp::acceptor _acceptor;
-	//session_idÓësessionµÄÓ³Éä
+	//session_idä¸sessionçš„æ˜ å°„
 	std::map<std::string, std::shared_ptr<ChatSession>> _sessions;
 	std::mutex _mutex;
 	boost::asio::steady_timer _timer;
 	TaskDelivery _task_delivery;
 };
+
 

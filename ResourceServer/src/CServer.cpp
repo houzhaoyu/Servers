@@ -1,4 +1,4 @@
-//ResourceServer
+ï»¿//ResourceServer
 #include "CServer.h"
 #include <iostream>
 #include "AsioIOContextPool.h"
@@ -42,7 +42,7 @@ void CServer::StartAccept() {
 void CServer::RemoveSession(std::string session_id) {
 	
 	if (_sessions.find(session_id) != _sessions.end()) {
-		//ÒÆ³ýÓÃ»§ºÍsessionµÄ¹ØÁª
+		//ç§»é™¤ç”¨æˆ·å’Œsessionçš„å…³è”
 		UserMgr::GetInstance()->RmvUserSession(_sessions[session_id]->GetUserId());
 	}
 
@@ -51,3 +51,4 @@ void CServer::RemoveSession(std::string session_id) {
 		_sessions.erase(session_id);
 	}
 }
+

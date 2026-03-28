@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 //ResourceServer
 #include <boost/asio.hpp>
 #include "FileSession.h"
@@ -26,4 +26,5 @@ private:
 	std::mutex _mutex;
 	TaskDelivery _task_delivery;
 };
+
 

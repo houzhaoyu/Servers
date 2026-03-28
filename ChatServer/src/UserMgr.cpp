@@ -1,4 +1,4 @@
-#include "UserMgr.h"
+ï»¿#include "UserMgr.h"
 #include "ChatSession.h"
 #include "RedisMgr.h"
 
@@ -34,7 +34,7 @@ void UserMgr::RmvUserSession(int uid, std::string session_id)
 		}
 	
 		auto session_id_ = iter->second->GetSessionId();
-		//²»ÏàµÈËµÃ÷ÊÇÆäËûµØ·½µÇÂ¼ÁË
+		//ä¸ç›¸ç­‰è¯´æ˜æ˜¯å…¶ä»–åœ°æ–¹ç™»å½•äº†
 		if (session_id_ != session_id) {
 			return;
 		}
@@ -47,3 +47,4 @@ UserMgr::UserMgr()
 {
 
 }
+

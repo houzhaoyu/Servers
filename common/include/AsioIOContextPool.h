@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <vector>
 #include <boost/asio.hpp>
@@ -17,7 +17,7 @@ public:
 	AsioIOContextPool(const AsioIOContextPool&) = delete;
 	AsioIOContextPool& operator=(const AsioIOContextPool&) = delete;
 
-	// Ê¹ÓÃ round-robin µÄ·½Ê½·µ»ØÒ»¸ö io_Context
+	// ä½¿ç”¨ round-robin çš„æ–¹å¼è¿”å›ä¸€ä¸ª io_Context
 	boost::asio::io_context& GetIOContext();
 	void Stop();
 
@@ -28,3 +28,4 @@ private:
 	std::vector<std::thread> _threads;
 	std::size_t _nextIOContext;
 };
+

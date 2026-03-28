@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <functional>
 #include <map>
 
@@ -23,4 +23,5 @@ private:
 	std::map<std::string, HttpHandler> _post_handlers;
 	std::map<std::string, HttpHandler> _get_handlers;
 };
+
 

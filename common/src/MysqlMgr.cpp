@@ -1,4 +1,4 @@
-#include "MysqlMgr.h"
+﻿#include "MysqlMgr.h"
 
 MysqlMgr::~MysqlMgr()
 {
@@ -112,7 +112,7 @@ bool MysqlMgr::UpdateUploadStatus(int chat_messag_id)
 
 std::shared_ptr<ChatImgInfo> MysqlMgr::GetImgInfoByMsgId(int msg_id)
 {
-	//��ѯ���ݿ��ȡͼƬ��Ϣ
+	//查询数据库获取图片信息
 	return _dao.GetImgInfoByMsgId(msg_id);
 }
 

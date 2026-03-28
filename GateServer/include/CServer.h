@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <boost/beast/http.hpp>
 #include <boost/beast.hpp>
@@ -21,4 +21,5 @@ private:
 	tcp::acceptor _acceptor;
 	tcp::socket   _socket;
 };
+
 

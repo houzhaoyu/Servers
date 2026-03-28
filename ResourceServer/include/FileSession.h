@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include "BaseSession.h"
 #include "const.h"
 #include "MsgNode.h"
@@ -21,7 +21,7 @@ public:
     int GetUserId() const { return _user_uid; }
 
 protected:
-    // ===== ProtocolSession½Ó¿ÚÊµÏÖ =====
+    // ===== ProtocolSessionæ¥å£å®ç° =====
     bool ParseHeader(const char* data, int& msg_id, int& msg_len) override;
 
     void OnMessage(std::shared_ptr<RecvNode> msg) override;

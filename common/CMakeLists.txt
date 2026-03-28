@@ -38,11 +38,15 @@ add_custom_command(
 )
 
 # 5. 编译静态库
-add_library(common STATIC ${COMMON_SRC} ${PROTO_GEN_FILES} "src/BaseSession.cpp" "include/BaseLogic.h" "src/BaseLogic.cpp")
+add_library(common STATIC ${COMMON_SRC} ${PROTO_GEN_FILES})
 
 # 6. 导出路径
 target_include_directories(common PUBLIC 
     include 
     ${PROTO_OUT_DIR}
+    ${THIRDPARTY_DIR}
 )
 target_link_libraries(common PUBLIC ${GLOBAL_LINK_LIBS})
+
+# 如果 spdlog 内部依赖 pthread (在 Linux 下需要)，这里可以加上，Windows 下 GLOBAL_LINK_LIBS 已处理
+#target_link_libraries(common PUBLIC ${GLOBAL_LINK_LIBS})

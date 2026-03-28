@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include "BaseSession.h"
 #include "const.h"
 #include "RedisMgr.h"
@@ -27,7 +27,7 @@ public:
     void SetUserId(int uid) { _user_uid = uid; }
     int GetUserId() const { return _user_uid; }
 
-    // ĞÄÌø¼ì²â
+    // å¿ƒè·³æ£€æµ‹
     bool IsHeartbeatExpired(std::time_t now);
 
     void UpdateHeartbeat();
@@ -38,7 +38,7 @@ public:
     void DealExceptionSession();
 
 protected:
-    // ===== ProtocolSession½Ó¿ÚÊµÏÖ =====
+    // ===== ProtocolSessionæ¥å£å®ç° =====
     bool ParseHeader(const char* data, int& msg_id, int& msg_len) override;
 
     void OnMessage(std::shared_ptr<RecvNode> msg) override;

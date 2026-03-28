@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
 project(ChatApp)
 
+# 针对 MSVC 编译器强制开启 /utf-8 选项
+if(MSVC)
+    add_compile_options("/utf-8")
+endif()
+
 set(CMAKE_CXX_STANDARD 17)       
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -11,7 +16,7 @@ set(BOOST_ROOT "E:/study/c++/library/boost_1_88_0")
 set(HIREDIS_ROOT "E:/study/c++/library/redis/hredis")
 set(MYSQL_ROOT "E:/study/c++/library/mysql-connector-c++-8.3.0-winx64")
 set(GRPC_ROOT "E:/study/c++/library/grpc")
-set(THIRDPARTY_DIR "E:/study/c++/project/FS_ChatApp/thirdparty")
+set(THIRDPARTY_DIR "E:/study/c++/project/FS_ChatApp/Servers/thirdparty")
 
 # ----------------------------------
 # 2. 统一头文件搜索路径
@@ -151,3 +156,7 @@ add_subdirectory(GateServer)
 add_subdirectory(ChatServer)
 add_subdirectory(StatusServer)
 add_subdirectory(ResourceServer)
+
+# 如果你想为 spdlog 设置一些全局宏（可选）
+add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG) # 设置日志级别
+add_definitions(-DSPDLOG_COMPILED_LIB)

@@ -1,4 +1,4 @@
-#include "ChatServerGrpcClient.h"
+ï»¿#include "ChatServerGrpcClient.h"
 #include "MysqlMgr.h"
 #include <filesystem>
 
@@ -17,9 +17,9 @@ NotifyChatImgRsp  ChatServerGrpcClient::NotifyChatImgMsg(int message_id, std::st
 	request.set_from_uid(chat_msg->sender_id);
 	request.set_to_uid(chat_msg->recv_id);
 	request.set_thread_id(chat_msg->thread_id);
-	// ×ÊÔ´ÎÄ¼þÂ·¾¶
+	// èµ„æºæ–‡ä»¶è·¯å¾„
 	auto file_dir = ConfigMgr::Inst().GetFileOutPath();
-	//¸ÃÏûÏ¢ÊÇ½ÓÊÕ·½¿Í»§¶Ë·¢ËÍ¹ýÀ´µÄ,·þÎñÆ÷½«×ÊÔ´´æ´¢ÔÚ·¢ËÍ·½µÄÎÄ¼þ¼ÐÖÐ
+	//è¯¥æ¶ˆæ¯æ˜¯æŽ¥æ”¶æ–¹å®¢æˆ·ç«¯å‘é€è¿‡æ¥çš„,æœåŠ¡å™¨å°†èµ„æºå­˜å‚¨åœ¨å‘é€æ–¹çš„æ–‡ä»¶å¤¹ä¸­
 	auto uid_str = std::to_string(chat_msg->sender_id);
 	auto file_path = (file_dir / uid_str / chat_msg->content);
 	boost::uintmax_t file_size = std::filesystem::file_size(file_path);

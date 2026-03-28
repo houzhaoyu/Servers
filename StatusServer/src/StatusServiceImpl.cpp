@@ -1,4 +1,4 @@
-#include "StatusServiceImpl.h"
+ï»¿#include "StatusServiceImpl.h"
 #include "ConfigMgr.h"
 #include "const.h"
 #include "RedisMgr.h"
@@ -6,10 +6,10 @@
 #include "Defer.h"
 
 std::string generate_unique_string() {
-	// ´´½¨UUID¶ÔÏó
+	// åˆ›å»ºUUIDå¯¹è±¡
 	boost::uuids::uuid uuid = boost::uuids::random_generator()();
 
-	// ½«UUID×ª»»Îª×Ö·û´®
+	// å°†UUIDè½¬æ¢ä¸ºå­—ç¬¦ä¸²
 	std::string unique_string = to_string(uuid);
 
 	return unique_string;
@@ -60,14 +60,14 @@ ChatServer StatusServiceImpl::getChatServer() {
 	auto minServer = _servers.begin()->second;
 	auto lock_key = LOCK_COUNT;
 	auto identifier = RedisMgr::GetInstance()->acquireLock(lock_key, LOCK_TIME_OUT, ACQUIRE_TIME_OUT);
-	//ÀûÓÃdefer½âËø
+	//åˆ©ç”¨deferè§£é”
 	Defer defer2([this, identifier, lock_key]() {
 		RedisMgr::GetInstance()->releaseLock(lock_key, identifier);
 		});
 
 	auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, minServer.name);
 	if (count_str.empty()) {
-		//²»´æÔÚÔòÄ¬ÈÏÉèÖÃÎª×î´ó
+		//ä¸å­˜åœ¨åˆ™é»˜è®¤è®¾ç½®ä¸ºæœ€å¤§
 		minServer.con_count = INT_MAX;
 	}
 	else {
@@ -75,7 +75,7 @@ ChatServer StatusServiceImpl::getChatServer() {
 	}
 
 
-	// Ê¹ÓÃ·¶Î§»ùÓÚforÑ­»·
+	// ä½¿ç”¨èŒƒå›´åŸºäºŽforå¾ªçŽ¯
 	for (auto& server : _servers) {
 
 		if (server.second.name == minServer.name) {
@@ -128,4 +128,5 @@ void StatusServiceImpl::insertToken(int uid, std::string token)
 	std::string token_key = USER_TOKEN_PREFIX + uid_str;
 	RedisMgr::GetInstance()->Set(token_key, token);
 }
+
 

@@ -1,4 +1,4 @@
-#include "FileSystem.h"
+﻿#include "FileSystem.h"
 #include "const.h"
 
 FileSystem::~FileSystem()
@@ -26,3 +26,4 @@ FileSystem::FileSystem()
 		_down_load_worker.push_back(std::make_shared<DownloadWorker>());
 	}
 }
+

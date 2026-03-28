@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <mutex>
 #include <memory>
 
@@ -45,7 +45,7 @@ public:
 
 	bool GetBaseInfo(std::string base_key, int uid, std::shared_ptr<UserInfo>& userinfo);
 
-	//½ÓÊÜrpcÌßÈËÇëÇó
+	//æ¥å—rpcè¸¢äººè¯·æ±‚
 	Status NotifyKickUser(::grpc::ServerContext* context,
 		const KickUserReq* request, KickUserRsp* response) override;
 
@@ -53,4 +53,5 @@ public:
 private:
 	std::shared_ptr<CServer> _p_server;
 };
+
 

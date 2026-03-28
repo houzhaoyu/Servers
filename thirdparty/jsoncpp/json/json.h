@@ -1,4 +1,4 @@
-/// Json-cpp amalgamated header (https://github.com/open-source-parsers/jsoncpp/).
+﻿/// Json-cpp amalgamated header (https://github.com/open-source-parsers/jsoncpp/).
 /// It is intended to be used with #include "json/json.h"
 
 // //////////////////////////////////////////////////////////////////////
@@ -2410,3 +2410,4 @@ JSON_API OStream& operator<<(OStream&, const Value& root);
 
 
 #endif //ifndef JSON_AMALGAMATED_H_INCLUDED
+

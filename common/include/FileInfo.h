@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <string>
 
 class FileInfo {
@@ -24,3 +24,4 @@ public:
 	int _message_id;
 	std::string _img_name;
 };
+

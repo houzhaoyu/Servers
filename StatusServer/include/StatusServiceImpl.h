@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <grpcpp/grpcpp.h>
 #include "message.grpc.pb.h"
 #include <mutex>
@@ -51,4 +51,5 @@ private:
 	std::mutex _server_mtx;
 
 };
+
 

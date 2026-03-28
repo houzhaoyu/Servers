@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <hiredis.h>
 #include <string>
 class DistLock
@@ -14,4 +14,5 @@ public:
 private:
 	DistLock() = default;
 };
+
 

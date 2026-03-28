@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include "Singleton.h"
 #include "FileInfo.h"
 #include <vector>
@@ -13,10 +13,10 @@ public:
 
 private:
     LogicSystem() : BaseLogic(8) { RegisterHandlers(); Start(); }
-    // ÊµÏÖ¾ßÌåµÄÉÏ´«/ÏÂÔØ»Øµ÷
+    // å®ç°å…·ä½“çš„ä¸Šä¼ /ä¸‹è½½å›è°ƒ
     void RegisterHandlers() override;
 
-    //ÒµÎñÂß¼­´úÂë
+    //ä¸šåŠ¡é€»è¾‘ä»£ç 
     void UploadHeadIconReq(std::shared_ptr<FileSession> session, const short& msg_id,
         const std::string& msg_data);
     void DownloadFileReq(std::shared_ptr<FileSession> session, const short& msg_id,

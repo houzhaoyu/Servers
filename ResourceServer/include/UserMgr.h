@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Singleton.h"
 #include <unordered_map>
 #include <memory>
@@ -19,4 +19,5 @@ private:
 	std::mutex _session_mtx;
 	std::unordered_map<int, std::shared_ptr<FileSession>> _uid_to_session;
 };
+
 
