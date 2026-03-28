@@ -10,6 +10,7 @@ class Logger
 {
 public:
     static void Init(const std::string& server_name);
+    static void SetLevel(const std::string& level);
 
     // 普通接口
     static void Debug(const std::string& msg);

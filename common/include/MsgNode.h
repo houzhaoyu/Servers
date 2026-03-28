@@ -17,7 +17,6 @@ public:
 	}
 
 	~MsgNode() {
-		std::cout << "destruct MsgNode" << std::endl;
 		delete[] _data;
 	}
 

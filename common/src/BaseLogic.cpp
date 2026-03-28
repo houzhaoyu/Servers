@@ -1,4 +1,5 @@
 ﻿#include "BaseLogic.h"
+#include "Logger.h"
 
 // 构造函数现在只初始化基础变量，不启动线程
 BaseLogic::BaseLogic(int thread_count) : _b_stop(false) {
@@ -23,6 +24,7 @@ void BaseLogic::Start() {
 }
 
 void BaseLogic::PostTask(std::shared_ptr<LogicTask> task, const std::string& key) {
+    Logger::Debug("PostTask : msgId = {}", task->recvnode->_msg_id);
     size_t worker_idx = 0;
     if (!key.empty()) {
         worker_idx = std::hash<std::string>{}(key) % _workers.size();

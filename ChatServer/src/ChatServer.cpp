@@ -40,6 +40,8 @@ int main(int argc, char* argv[])
         port_str = cfg[serverName]["Port"];
     }
     Logger::Init(serverName);
+    Logger::SetLevel(cfg[serverName]["LogLevel"]);
+    Logger::Info("Server is starting...");
 
     try {
         auto pool = AsioIOContextPool::GetInstance();

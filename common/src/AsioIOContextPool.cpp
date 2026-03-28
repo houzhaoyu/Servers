@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 #include <memory>
 #include "AsioIOContextPool.h"
+#include "Logger.h"
 
 AsioIOContextPool::AsioIOContextPool(std::size_t size) :_ioContexts(size),
 														_works(size),
@@ -22,7 +23,7 @@ AsioIOContextPool::AsioIOContextPool(std::size_t size) :_ioContexts(size),
 
 AsioIOContextPool::~AsioIOContextPool() {
 	Stop();
-	std::cout << "AsioIOContextPool destruct" << std::endl;
+    Logger::Info("AsioIOContextPool destruct");
 }
 
 boost::asio::io_context& AsioIOContextPool::GetIOContext() 

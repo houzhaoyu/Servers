@@ -1,69 +1,81 @@
-﻿//ChatServer
+﻿// ChatServer
 #include "CServer.h"
 #include <iostream>
 #include "AsioIOContextPool.h"
 #include "UserMgr.h"
 #include "RedisMgr.h"
 #include "ConfigMgr.h"
+#include "Logger.h"
 
-CServer::CServer(boost::asio::io_context& io_context, unsigned int port, TaskDelivery task_delivery):
-	_io_context(io_context), 
-	_port(port), 
-	_acceptor(io_context, tcp::endpoint(tcp::v4(),port)),
-	_timer(_io_context, std::chrono::seconds(HEARTBEAT_INTERVAL)),
-	_task_delivery(task_delivery)
+CServer::CServer(boost::asio::io_context &io_context, unsigned int port, TaskDelivery task_delivery) : _io_context(io_context),
+																									   _port(port),
+																									   _acceptor(io_context, tcp::endpoint(tcp::v4(), port)),
+																									   _timer(_io_context, std::chrono::seconds(HEARTBEAT_INTERVAL)),
+																									   _task_delivery(task_delivery)
 {
-	std::cout << "Server start success, listen on port : " << _port << std::endl;
+	Logger::Info("Server start success, listen on port {} ", std::to_string(_port));
 
 	StartAccept();
 }
 
-CServer::~CServer() {
-	std::cout << "Server destruct listen on port : " << _port << std::endl;
-	
+CServer::~CServer()
+{
+	Logger::Info("Server destruct, listen on port {} ", std::to_string(_port));
 }
 
-void CServer::HandleAccept(std::shared_ptr<ChatSession> new_session, const boost::system::error_code& error){
-	if (!error) {
+void CServer::HandleAccept(std::shared_ptr<ChatSession> new_session, const boost::system::error_code &error)
+{
+	if (!error)
+	{
 		new_session->Start();
 		std::lock_guard<std::mutex> lock(_mutex);
 		_sessions.insert(std::make_pair(new_session->GetSessionId(), new_session));
+		Logger::Debug("new session accept, session id is {}, current session count is {}", new_session->GetSessionId(), _sessions.size());
 	}
-	else {
-		std::cout << "session accept failed, error is " << error.what() << std::endl;
+	else
+	{
+		Logger::Error("session accept failed, error is {}", error.what());
 	}
 
 	StartAccept();
 }
 
-void CServer::StartAccept() {
+void CServer::StartAccept()
+{
 	auto &io_context = AsioIOContextPool::GetInstance()->GetIOContext();
-	std::shared_ptr<ChatSession> new_session = std::make_shared<ChatSession>(io_context, _task_delivery, 
-		[this](const std::string& session_id) { return this->CheckValid(session_id); },
-		[this](const std::string& session_id) { this->RemoveSession(session_id); });
+	std::shared_ptr<ChatSession> new_session = std::make_shared<ChatSession>(
+		io_context, _task_delivery,
+		[this](const std::string &session_id)
+		{ return this->CheckValid(session_id); },
+		[this](const std::string &session_id)
+		{ this->RemoveSession(session_id); });
 	_acceptor.async_accept(new_session->GetSocket(), std::bind(&CServer::HandleAccept, this, new_session, std::placeholders::_1));
 }
 
-//根据session 的id删除session，并移除用户和session的关联
-void CServer::RemoveSession(std::string session_id) {
-	
+// 根据session 的id删除session，并移除用户和session的关联
+void CServer::RemoveSession(std::string session_id)
+{
+
 	std::lock_guard<std::mutex> lock(_mutex);
-	if (_sessions.find(session_id) != _sessions.end()) {
+	if (_sessions.find(session_id) != _sessions.end())
+	{
 		auto uid = _sessions[session_id]->GetUserId();
 
-		//移除用户和session的关联
+		// 移除用户和session的关联
 		UserMgr::GetInstance()->RmvUserSession(uid, session_id);
 	}
 
 	_sessions.erase(session_id);
-	
+	Logger::Debug("session removed, session id is {}, current session count is {}", session_id, _sessions.size());
 }
 
-//根据用户获取session
-std::shared_ptr<ChatSession> CServer::GetSessionBySessionId(std::string session_id) {
+// 根据用户获取session
+std::shared_ptr<ChatSession> CServer::GetSessionBySessionId(std::string session_id)
+{
 	std::lock_guard<std::mutex> lock(_mutex);
 	auto it = _sessions.find(session_id);
-	if (it != _sessions.end()) {
+	if (it != _sessions.end())
+	{
 		return it->second;
 	}
 	return nullptr;
@@ -73,20 +85,23 @@ bool CServer::CheckValid(std::string session_id)
 {
 	std::lock_guard<std::mutex> lock(_mutex);
 	auto it = _sessions.find(session_id);
-	if (it != _sessions.end()) {
+	if (it != _sessions.end())
+	{
 		return true;
 	}
 	return false;
 }
 
-void CServer::on_timer(const boost::system::error_code& ec) {
-	if (ec) {
+void CServer::on_timer(const boost::system::error_code &ec)
+{
+	if (ec)
+	{
 		std::cout << "timer error: " << ec.message() << std::endl;
 		return;
 	}
 	std::vector<std::shared_ptr<ChatSession>> _expired_sessions;
 	int session_count = 0;
-	//此处加锁遍历session
+	// 此处加锁遍历session
 	std::map<std::string, std::shared_ptr<ChatSession>> sessions_copy;
 	{
 		std::lock_guard<std::mutex> lock(_mutex);
@@ -94,47 +109,47 @@ void CServer::on_timer(const boost::system::error_code& ec) {
 	}
 
 	time_t now = std::time(nullptr);
-	for (auto iter = sessions_copy.begin(); iter != sessions_copy.end(); iter++) {
+	for (auto iter = sessions_copy.begin(); iter != sessions_copy.end(); iter++)
+	{
 		auto b_expired = iter->second->IsHeartbeatExpired(now);
-		if (b_expired) {
-			//关闭socket, 其实这里也会触发async_read的错误处理
+		if (b_expired)
+		{
+			// 关闭socket, 其实这里也会触发async_read的错误处理
 			iter->second->Close();
-			//收集过期信息
+			// 收集过期信息
 			_expired_sessions.push_back(iter->second);
 			continue;
 		}
 		session_count++;
 	}
 
-	//设置session数量
-	auto& cfg = ConfigMgr::Inst();
+	// 设置session数量
+	auto &cfg = ConfigMgr::Inst();
 	auto self_name = cfg["SelfServer"]["Name"];
 	auto count_str = std::to_string(session_count);
 	RedisMgr::GetInstance()->HSet(LOGIN_COUNT, self_name, count_str);
 
-	//处理过期session, 单独提出，防止死锁
-	for (auto &session : _expired_sessions) {
+	// 处理过期session, 单独提出，防止死锁
+	for (auto &session : _expired_sessions)
+	{
 		session->DealExceptionSession();
 	}
-	
-	//再次设置，下一个60s检测
+
+	// 再次设置，下一个60s检测
 	_timer.expires_after(std::chrono::seconds(60));
-	_timer.async_wait([this](boost::system::error_code ec) {
-		on_timer(ec);
-	});
+	_timer.async_wait([this](boost::system::error_code ec)
+					  { on_timer(ec); });
 }
 
 void CServer::StartTimer()
 {
-	//启动定时器
+	// 启动定时器
 	auto self(shared_from_this());
-	_timer.async_wait([self](boost::system::error_code ec) {
-		self->on_timer(ec);
-		});
+	_timer.async_wait([self](boost::system::error_code ec)
+					  { self->on_timer(ec); });
 }
 
 void CServer::StopTimer()
 {
 	_timer.cancel();
 }
-
