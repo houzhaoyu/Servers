@@ -1,24 +1,27 @@
 ﻿#include "FileSession.h"
 #include <iostream>
+#include "Logger.h"
 
 // =========================
 // 协议解析（注意：int长度）
 // =========================
-bool FileSession::ParseHeader(const char* data, int& msg_id, int& msg_len)
+bool FileSession::ParseHeader(const char *data, int &msg_id, int &msg_len)
 {
     memcpy(&msg_id, data, HEAD_ID_LEN);
     msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);
 
-    if (msg_id > FILE_MAX_LENGTH) {
-        std::cout << "invalid msg_id: " << msg_id << std::endl;
+    if (msg_id > FILE_MAX_LENGTH)
+    {
+        Logger::Error("invalid msg_id: {}", msg_id);
         return false;
     }
 
     memcpy(&msg_len, data + HEAD_ID_LEN, FILE_HEAD_DATA_LEN);
     msg_len = boost::asio::detail::socket_ops::network_to_host_long(msg_len);
 
-    if (msg_len > FILE_MAX_LENGTH) {
-        std::cout << "invalid msg_len: " << msg_len << std::endl;
+    if (msg_len > FILE_MAX_LENGTH)
+    {
+        Logger::Error("invalid msg_len: {}", msg_len);
         return false;
     }
 

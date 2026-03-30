@@ -4,8 +4,10 @@
 #include "RedisMgr.h"
 #include <climits>
 #include "Defer.h"
+#include "Logger.h"
 
-std::string generate_unique_string() {
+std::string generate_unique_string()
+{
 	// 创建UUID对象
 	boost::uuids::uuid uuid = boost::uuids::random_generator()();
 
@@ -15,10 +17,10 @@ std::string generate_unique_string() {
 	return unique_string;
 }
 
-Status StatusServiceImpl::GetChatServer(ServerContext* context, const GetChatServerReq* request, GetChatServerRsp* reply)
+Status StatusServiceImpl::GetChatServer(ServerContext *context, const GetChatServerReq *request, GetChatServerRsp *reply)
 {
 	std::string prefix("status server has received :  ");
-	const auto& server = getChatServer();
+	const auto &server = getChatServer();
 	reply->set_host(server.host);
 	reply->set_port(server.port);
 	reply->set_error(ErrorCodes::Success);
@@ -29,7 +31,7 @@ Status StatusServiceImpl::GetChatServer(ServerContext* context, const GetChatSer
 
 StatusServiceImpl::StatusServiceImpl()
 {
-	auto& cfg = ConfigMgr::Inst();
+	auto &cfg = ConfigMgr::Inst();
 	auto server_list = cfg["chatservers"]["Name"];
 
 	std::vector<std::string> words;
@@ -37,12 +39,15 @@ StatusServiceImpl::StatusServiceImpl()
 	std::stringstream ss(server_list);
 	std::string word;
 
-	while (std::getline(ss, word, ',')) {
+	while (std::getline(ss, word, ','))
+	{
 		words.push_back(word);
 	}
 
-	for (auto& word : words) {
-		if (cfg[word]["Name"].empty()) {
+	for (auto &word : words)
+	{
+		if (cfg[word]["Name"].empty())
+		{
 			continue;
 		}
 
@@ -52,54 +57,64 @@ StatusServiceImpl::StatusServiceImpl()
 		server.name = cfg[word]["Name"];
 		_servers[server.name] = server;
 	}
-
 }
 
-ChatServer StatusServiceImpl::getChatServer() {
+ChatServer StatusServiceImpl::getChatServer()
+{
+	Logger::Info("GetChatServer called");
 	std::lock_guard<std::mutex> guard(_server_mtx);
 	auto minServer = _servers.begin()->second;
 	auto lock_key = LOCK_COUNT;
 	auto identifier = RedisMgr::GetInstance()->acquireLock(lock_key, LOCK_TIME_OUT, ACQUIRE_TIME_OUT);
-	//利用defer解锁
-	Defer defer2([this, identifier, lock_key]() {
-		RedisMgr::GetInstance()->releaseLock(lock_key, identifier);
-		});
+	// 利用defer解锁
+	Defer defer2([this, identifier, lock_key]()
+				 { RedisMgr::GetInstance()->releaseLock(lock_key, identifier); });
 
 	auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, minServer.name);
-	if (count_str.empty()) {
-		//不存在则默认设置为最大
+	if (count_str.empty())
+	{
+		// 不存在则默认设置为最大
 		minServer.con_count = INT_MAX;
 	}
-	else {
+	else
+	{
 		minServer.con_count = std::stoi(count_str);
 	}
 
-
 	// 使用范围基于for循环
-	for (auto& server : _servers) {
+	for (auto &server : _servers)
+	{
 
-		if (server.second.name == minServer.name) {
+		if (server.second.name == minServer.name)
+		{
 			continue;
 		}
 
 		auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, server.second.name);
-		if (count_str.empty()) {
+		if (count_str.empty())
+		{
 			server.second.con_count = INT_MAX;
 		}
-		else {
+		else
+		{
 			server.second.con_count = std::stoi(count_str);
 		}
 
-		if (server.second.con_count < minServer.con_count) {
+		if (server.second.con_count < minServer.con_count)
+		{
 			minServer = server.second;
 		}
 	}
 
+	Logger::Debug("Selected chat server: {} with connection count: {}", minServer.name, minServer.con_count);
+
 	return minServer;
 }
 
-Status StatusServiceImpl::Login(ServerContext* context, const LoginReq* request, LoginRsp* reply)
+Status StatusServiceImpl::Login(ServerContext *context, const LoginReq *request, LoginRsp *reply)
 {
+	Logger::Info("Login called for uid: {}", request->uid());
+
 	auto uid = request->uid();
 	auto token = request->token();
 
@@ -107,12 +122,14 @@ Status StatusServiceImpl::Login(ServerContext* context, const LoginReq* request,
 	std::string token_key = USER_TOKEN_PREFIX + uid_str;
 	std::string token_value = "";
 	bool success = RedisMgr::GetInstance()->Get(token_key, token_value);
-	if (success) {
+	if (success)
+	{
 		reply->set_error(ErrorCodes::UidInvalid);
 		return Status::OK;
 	}
 
-	if (token_value != token) {
+	if (token_value != token)
+	{
 		reply->set_error(ErrorCodes::TokenInvalid);
 		return Status::OK;
 	}
@@ -124,9 +141,9 @@ Status StatusServiceImpl::Login(ServerContext* context, const LoginReq* request,
 
 void StatusServiceImpl::insertToken(int uid, std::string token)
 {
+	Logger::Info("Inserting token for uid: {}, token: {}", uid, token);
+
 	std::string uid_str = std::to_string(uid);
 	std::string token_key = USER_TOKEN_PREFIX + uid_str;
 	RedisMgr::GetInstance()->Set(token_key, token);
 }
-
-

@@ -15,8 +15,16 @@
 #include <thread>
 #include <boost/asio.hpp>
 #include "StatusServiceImpl.h"
-void RunServer() {
-    auto& cfg = ConfigMgr::Inst();
+#include "Logger.h"
+
+void RunServer()
+{
+    auto &cfg = ConfigMgr::Inst();
+
+    Logger::Init("StatusServer");
+    Logger::SetLevel(cfg["StatusServer"]["LogLevel"]);
+    Logger::Info("{} is starting..., listening on {}", "StatusServer", cfg["StatusServer"]["Host"] + ":" + cfg["StatusServer"]["Port"]);
+
     std::string server_address(cfg["StatusServer"]["Host"] + ":" + cfg["StatusServer"]["Port"]);
     StatusServiceImpl service;
     grpc::ServerBuilder builder;
@@ -31,24 +39,29 @@ void RunServer() {
     // 创建signal_set用于捕获SIGINT
     boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
     // 设置异步等待SIGINT信号
-    signals.async_wait([&server](const boost::system::error_code& error, int signal_number) {
+    signals.async_wait([&server](const boost::system::error_code &error, int signal_number)
+                       {
         if (!error) {
             std::cout << "Shutting down server..." << std::endl;
             server->Shutdown(); // 优雅地关闭服务器
-        }
-        });
+        } });
     // 在单独的线程中运行io_context
-    std::thread([&io_context]() { io_context.run(); }).detach();
+    std::thread([&io_context]()
+                { io_context.run(); })
+        .detach();
     // 等待服务器关闭
     server->Wait();
     io_context.stop(); // 停止io_context
 }
-int main(int argc, char** argv) {
-    try {
+int main(int argc, char **argv)
+{
+    try
+    {
         RunServer();
     }
-    catch (std::exception const& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+    catch (std::exception const &e)
+    {
+        Logger::Error("Exception: {}", e.what());
         return EXIT_FAILURE;
     }
     return 0;

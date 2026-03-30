@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
     }
     Logger::Init(serverName);
     Logger::SetLevel(cfg[serverName]["LogLevel"]);
-    Logger::Info("Server is starting...");
+    Logger::Info("{} is starting...", serverName);
 
     try {
         auto pool = AsioIOContextPool::GetInstance();

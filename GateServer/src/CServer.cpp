@@ -1,18 +1,19 @@
 ﻿#include "CServer.h"
 #include "HttpConnection.h"
+#include "Logger.h"
 
-CServer::CServer(boost::asio::io_context& ioc, unsigned short& port):_ioc(ioc),
-_acceptor(_ioc, tcp::endpoint(tcp::v4(), port)), _socket(ioc)
+CServer::CServer(boost::asio::io_context &ioc, unsigned short &port) : _ioc(ioc),
+																	   _acceptor(_ioc, tcp::endpoint(tcp::v4(), port)), _socket(ioc)
 {
-
 }
 
 void CServer::Start()
 {
 	auto self = shared_from_this();
-	auto& io_context = AsioIOContextPool::GetInstance()->GetIOContext();
+	auto &io_context = AsioIOContextPool::GetInstance()->GetIOContext();
 	std::shared_ptr<HttpConnection> new_conn = std::make_shared<HttpConnection>(io_context);
-	_acceptor.async_accept(new_conn->GetSocket(), [self, new_conn](beast::error_code ec) {
+	_acceptor.async_accept(new_conn->GetSocket(), [self, new_conn](beast::error_code ec)
+						   {
 		try {
 			//出错则放弃该连接，继续监听其他连接
 			if (ec)
@@ -30,8 +31,7 @@ void CServer::Start()
 			self->Start();
 		}
 		catch (std::exception& exp) {
-			std::cout << "exception is " << exp.what() << std::endl;
+			Logger::Error("Exception: {}", exp.what());
 			self->Start();
-		}
-		});
+		} });
 }
