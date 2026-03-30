@@ -1,5 +1,6 @@
 ﻿#include "MysqlDao.h"
 #include "ConfigMgr.h"
+#include "Logger.h"
 
 MysqlDao::MysqlDao()
 {
@@ -19,6 +20,7 @@ MysqlDao::~MysqlDao()
 
 int MysqlDao::RegUser(const std::string &name, const std::string &email, const std::string &pwd)
 {
+	Logger::Debug("MysqlDao::RegUser");
 	auto con = pool_->getConnection();
 	try
 	{
@@ -40,7 +42,6 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
 		if (res->next())
 		{
 			int result = res->getInt("result");
-			std::cout << "Result: " << result << std::endl;
 			pool_->returnConnection(std::move(con));
 			return result;
 		}
@@ -50,9 +51,7 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
 	catch (sql::SQLException &e)
 	{
 		pool_->returnConnection(std::move(con));
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return -1;
 	}
 }
@@ -60,6 +59,7 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
 int MysqlDao::RegUserTransaction(const std::string &name, const std::string &email, const std::string &pwd,
 								 const std::string &icon)
 {
+	Logger::Debug("MysqlDao::RegUserTransaction");
 	auto con = pool_->getConnection();
 	if (con == nullptr)
 	{
@@ -83,7 +83,6 @@ int MysqlDao::RegUserTransaction(const std::string &name, const std::string &ema
 		if (email_exist)
 		{
 			con->_con->rollback();
-			std::cout << "email " << email << " exist";
 			return 0;
 		}
 
@@ -97,7 +96,6 @@ int MysqlDao::RegUserTransaction(const std::string &name, const std::string &ema
 		if (name_exist)
 		{
 			con->_con->rollback();
-			std::cout << "name " << name << " exist";
 			return 0;
 		}
 
@@ -114,7 +112,7 @@ int MysqlDao::RegUserTransaction(const std::string &name, const std::string &ema
 		}
 		else
 		{
-			std::cout << "select id from user_id failed" << std::endl;
+			Logger::Debug("select id from user_id failed");
 			con->_con->rollback();
 			return -1;
 		}
@@ -129,7 +127,6 @@ int MysqlDao::RegUserTransaction(const std::string &name, const std::string &ema
 		// pstmt_insert->setString(6, icon);
 		pstmt_insert->executeUpdate();
 		con->_con->commit();
-		std::cout << "newuser insert into user success" << std::endl;
 		return newId;
 	}
 	catch (sql::SQLException &e)
@@ -138,15 +135,14 @@ int MysqlDao::RegUserTransaction(const std::string &name, const std::string &ema
 		{
 			con->_con->rollback();
 		}
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return -1;
 	}
 }
 
 bool MysqlDao::CheckEmail(const std::string &name, const std::string &email)
 {
+	Logger::Debug("MysqlDao::CheckEmail");
 	auto con = pool_->getConnection();
 	try
 	{
@@ -163,7 +159,6 @@ bool MysqlDao::CheckEmail(const std::string &name, const std::string &email)
 
 		while (res->next())
 		{
-			std::cout << "Check Email: " << res->getString("email") << std::endl;
 			if (email != res->getString("email"))
 			{
 				pool_->returnConnection(std::move(con));
@@ -177,15 +172,14 @@ bool MysqlDao::CheckEmail(const std::string &name, const std::string &email)
 	catch (sql::SQLException &e)
 	{
 		pool_->returnConnection(std::move(con));
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return false;
 	}
 }
 
 bool MysqlDao::UpdatePwd(const std::string &name, const std::string &newpwd)
 {
+	Logger::Debug("MysqlDao::UpdatePwd");
 	auto con = pool_->getConnection();
 	try
 	{
@@ -201,16 +195,13 @@ bool MysqlDao::UpdatePwd(const std::string &name, const std::string &newpwd)
 
 		int updateCount = pstmt->executeUpdate();
 
-		std::cout << "Updated rows: " << updateCount << std::endl;
 		pool_->returnConnection(std::move(con));
 		return true;
 	}
 	catch (sql::SQLException &e)
 	{
 		pool_->returnConnection(std::move(con));
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return false;
 	}
 }
@@ -236,7 +227,6 @@ bool MysqlDao::CheckPwd(const std::string &email, const std::string &pwd, UserIn
 		while (res->next())
 		{
 			origin_pwd = res->getString("pwd");
-			std::cout << "Password: " << origin_pwd << std::endl;
 			break;
 		}
 
@@ -252,9 +242,7 @@ bool MysqlDao::CheckPwd(const std::string &email, const std::string &pwd, UserIn
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return false;
 	}
 }
@@ -283,7 +271,6 @@ bool MysqlDao::TestProcedure(const std::string &email, int &uid, std::string &na
 		}
 
 		uid = res->getInt("uid");
-		std::cout << "uid: " << uid << std::endl;
 
 		stmtResult.reset(con->_con->createStatement());
 		res.reset(stmtResult->executeQuery("SELECT @userName AS name"));
@@ -293,14 +280,11 @@ bool MysqlDao::TestProcedure(const std::string &email, int &uid, std::string &na
 		}
 
 		name = res->getString("name");
-		std::cout << "name: " << name << std::endl;
 		return true;
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return false;
 	}
 }
@@ -338,9 +322,7 @@ bool MysqlDao::AddFriendApply(const int &from, const int &to,
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return false;
 	}
 
@@ -373,9 +355,7 @@ bool MysqlDao::AuthFriendApply(const int &from, const int &to)
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return false;
 	}
 
@@ -526,7 +506,6 @@ bool MysqlDao::AddFriend(const int &from, const int &to, std::string back_name,
 				tx_data->set_thread_id(threadId);
 				tx_data->set_unique_id("");
 				tx_data->set_status(2);
-				std::cout << "addfriend insert message success" << std::endl;
 				chat_datas.push_back(tx_data);
 			}
 			else
@@ -573,8 +552,6 @@ bool MysqlDao::AddFriend(const int &from, const int &to, std::string back_name,
 		}
 
 		con->_con->commit();
-		std::cout << "addfriend insert friends success" << std::endl;
-
 		return true;
 	}
 	catch (sql::SQLException &e)
@@ -583,9 +560,7 @@ bool MysqlDao::AddFriend(const int &from, const int &to, std::string back_name,
 		{
 			con->_con->rollback();
 		}
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return false;
 	}
 
@@ -627,9 +602,7 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(int uid)
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return nullptr;
 	}
 }
@@ -669,9 +642,7 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(std::string name)
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return nullptr;
 	}
 }
@@ -713,9 +684,7 @@ bool MysqlDao::GetApplyList(int touid, std::vector<std::shared_ptr<ApplyInfo>> &
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return false;
 	}
 }
@@ -756,9 +725,7 @@ bool MysqlDao::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo>>
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return false;
 	}
 
@@ -840,9 +807,7 @@ bool MysqlDao::GetUserThreads(
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException: " << e.what()
-				  << " (MySQL error code: " << e.getErrorCode()
-				  << ", SQLState: " << e.getSQLState() << ")\n";
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return false;
 	}
 
@@ -908,7 +873,7 @@ bool MysqlDao::CreatePrivateChat(int user1_id, int user2_id, int &thread_id)
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException: " << e.what() << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		conn->rollback();
 		return false;
 	}
@@ -981,7 +946,7 @@ std::shared_ptr<PageResult> MysqlDao::LoadChatMsg(int thread_id, int last_messag
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException: " << e.what() << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		conn->rollback();
 		return nullptr;
 	}
@@ -1041,7 +1006,7 @@ bool MysqlDao::AddChatMsg(std::vector<std::shared_ptr<ChatMessage>> &chat_datas)
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException: " << e.what() << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		conn->rollback();
 		return false;
 	}
@@ -1093,7 +1058,7 @@ bool MysqlDao::AddChatMsg(std::shared_ptr<ChatMessage> chat_data)
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException: " << e.what() << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		conn->rollback();
 		return false;
 	}
@@ -1142,7 +1107,7 @@ std::shared_ptr<ChatMessage> MysqlDao::GetChatMsg(int message_id)
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "GetChatMessageById SQLException: " << e.what() << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return nullptr;
 	}
 }
@@ -1171,7 +1136,7 @@ bool MysqlDao::UpdateHeadInfo(int uid, const std::string &icon)
 
 		if (affected_rows == 0)
 		{
-			std::cerr << "No user found with uid: " << uid << std::endl;
+			Logger::Error("No user found with uid: {}", uid);
 			return false;
 		}
 
@@ -1179,7 +1144,7 @@ bool MysqlDao::UpdateHeadInfo(int uid, const std::string &icon)
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException in UpdateHeadInfo: " << e.what() << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return false;
 	}
 	return false;
@@ -1209,7 +1174,7 @@ bool MysqlDao::UpdateUploadStatus(int chat_message_id)
 
 		if (affected_rows == 0)
 		{
-			std::cerr << "No chat message found with chat_message_id: " << chat_message_id << std::endl;
+			Logger::Error("No chat message found with chat_message_id: {}", chat_message_id);
 			return false;
 		}
 
@@ -1217,7 +1182,7 @@ bool MysqlDao::UpdateUploadStatus(int chat_message_id)
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException in UpdateUploadStatus: " << e.what() << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return false;
 	}
 	return false;
@@ -1257,7 +1222,7 @@ std::shared_ptr<ChatImgInfo> MysqlDao::GetImgInfoByMsgId(int message_id)
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "SQLException in UpdateUploadStatus: " << e.what() << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return nullptr;
 	}
 	return nullptr;
@@ -1305,7 +1270,7 @@ std::shared_ptr<ChatMessage> MysqlDao::GetChatMsgById(int message_id)
 	}
 	catch (sql::SQLException &e)
 	{
-		std::cerr << "GetChatMessageById SQLException: " << e.what() << std::endl;
+		Logger::Error("SQLException: {} (MySQL error code: {}, SQLState: {})", e.what(), e.getErrorCode(), e.getSQLState().c_str());
 		return nullptr;
 	}
 }
