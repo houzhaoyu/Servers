@@ -26,19 +26,15 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
 		{
 			return false;
 		}
-		// 准锟斤拷锟斤拷锟矫存储锟斤拷锟斤拷
+
 		std::unique_ptr<sql::PreparedStatement> stmt(con->_con->prepareStatement("CALL reg_user(?,?,?,@result)"));
-		// 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟?
+
 		stmt->setString(1, name);
 		stmt->setString(2, email);
 		stmt->setString(3, pwd);
 
-		// 锟斤拷锟斤拷PreparedStatement锟斤拷直锟斤拷支锟斤拷注锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟揭癸拷没峄帮拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟饺★拷锟斤拷锟斤拷锟斤拷锟斤拷值
-
-		// 执锟叫存储锟斤拷锟斤拷
 		stmt->execute();
-		// 锟斤拷锟斤拷娲拷锟斤拷锟斤拷锟斤拷锟斤拷嘶峄帮拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟绞斤拷锟饺★拷锟斤拷锟斤拷锟斤拷锟斤拷值锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟街达拷锟絊ELECT锟斤拷询锟斤拷锟斤拷取锟斤拷锟斤拷
-		// 锟斤拷锟界，锟斤拷锟斤拷娲拷锟斤拷锟斤拷锟斤拷锟斤拷锟揭伙拷锟斤拷峄帮拷锟斤拷锟紷result锟斤拷锟芥储锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷取锟斤拷
+
 		std::unique_ptr<sql::Statement> stmtResult(con->_con->createStatement());
 		std::unique_ptr<sql::ResultSet> res(stmtResult->executeQuery("SELECT @result AS result"));
 		if (res->next())
@@ -61,94 +57,85 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
 	}
 }
 
-int MysqlDao::RegUserTransaction(const std::string& name, const std::string& email, const std::string& pwd,
-	const std::string& icon)
+int MysqlDao::RegUserTransaction(const std::string &name, const std::string &email, const std::string &pwd,
+								 const std::string &icon)
 {
 	auto con = pool_->getConnection();
-	if (con == nullptr) {
+	if (con == nullptr)
+	{
 		return false;
 	}
 
-	Defer defer([this, &con] {
-		pool_->returnConnection(std::move(con));
-		});
+	Defer defer([this, &con]
+				{ pool_->returnConnection(std::move(con)); });
 
-	try {
-		//锟斤拷始锟斤拷锟斤拷
+	try
+	{
 		con->_con->setAutoCommit(false);
-		//执锟叫碉拷一锟斤拷锟斤拷锟捷匡拷锟斤拷锟斤拷锟斤拷锟斤拷锟絜mail锟斤拷锟斤拷锟矫伙拷
-			// 准锟斤拷锟斤拷询锟斤拷锟?
 
 		std::unique_ptr<sql::PreparedStatement> pstmt_email(con->_con->prepareStatement("SELECT 1 FROM user WHERE email = ?"));
 
-		// 锟襟定诧拷锟斤拷
 		pstmt_email->setString(1, email);
 
-		// 执锟叫诧拷询
 		std::unique_ptr<sql::ResultSet> res_email(pstmt_email->executeQuery());
 
 		auto email_exist = res_email->next();
-		if (email_exist) {
+		if (email_exist)
+		{
 			con->_con->rollback();
 			std::cout << "email " << email << " exist";
 			return 0;
 		}
 
-		// 准锟斤拷锟斤拷询锟矫伙拷锟斤拷锟角凤拷锟截革拷
 		std::unique_ptr<sql::PreparedStatement> pstmt_name(con->_con->prepareStatement("SELECT 1 FROM user WHERE name = ?"));
 
-		// 锟襟定诧拷锟斤拷
 		pstmt_name->setString(1, name);
 
-		// 执锟叫诧拷询
 		std::unique_ptr<sql::ResultSet> res_name(pstmt_name->executeQuery());
 
 		auto name_exist = res_name->next();
-		if (name_exist) {
+		if (name_exist)
+		{
 			con->_con->rollback();
 			std::cout << "name " << name << " exist";
 			return 0;
 		}
 
-		// 准锟斤拷锟斤拷锟斤拷锟矫伙拷id
 		std::unique_ptr<sql::PreparedStatement> pstmt_upid(con->_con->prepareStatement("UPDATE user_id SET id = id + 1"));
 
-		// 执锟叫革拷锟斤拷
 		pstmt_upid->executeUpdate();
 
-		// 锟斤拷取锟斤拷锟铰猴拷锟?id 值
 		std::unique_ptr<sql::PreparedStatement> pstmt_uid(con->_con->prepareStatement("SELECT id FROM user_id"));
 		std::unique_ptr<sql::ResultSet> res_uid(pstmt_uid->executeQuery());
 		int newId = 0;
-		// 锟斤拷锟斤拷锟斤拷锟斤拷锟?
-		if (res_uid->next()) {
+		if (res_uid->next())
+		{
 			newId = res_uid->getInt("id");
 		}
-		else {
+		else
+		{
 			std::cout << "select id from user_id failed" << std::endl;
 			con->_con->rollback();
 			return -1;
 		}
 
-		// 锟斤拷锟斤拷user锟斤拷息
 		std::unique_ptr<sql::PreparedStatement> pstmt_insert(con->_con->prepareStatement("INSERT INTO user (uid, name, email, pwd) "
-			"VALUES (?, ?, ?, ?)"));
+																						 "VALUES (?, ?, ?, ?)"));
 		pstmt_insert->setInt(1, newId);
 		pstmt_insert->setString(2, name);
 		pstmt_insert->setString(3, email);
 		pstmt_insert->setString(4, pwd);
-		//pstmt_insert->setString(5, name);
-		//pstmt_insert->setString(6, icon);
-		//执锟叫诧拷锟斤拷
+		// pstmt_insert->setString(5, name);
+		// pstmt_insert->setString(6, icon);
 		pstmt_insert->executeUpdate();
-		// 锟结交锟斤拷锟斤拷
 		con->_con->commit();
 		std::cout << "newuser insert into user success" << std::endl;
 		return newId;
 	}
-	catch (sql::SQLException& e) {
-		// 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷螅毓锟斤拷锟斤拷锟?
-		if (con) {
+	catch (sql::SQLException &e)
+	{
+		if (con)
+		{
 			con->_con->rollback();
 		}
 		std::cerr << "SQLException: " << e.what();
@@ -168,16 +155,12 @@ bool MysqlDao::CheckEmail(const std::string &name, const std::string &email)
 			return false;
 		}
 
-		// 准锟斤拷锟斤拷询锟斤拷锟?
 		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("SELECT email FROM user WHERE name = ?"));
 
-		// 锟襟定诧拷锟斤拷
 		pstmt->setString(1, name);
 
-		// 执锟叫诧拷询
 		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
 
-		// 锟斤拷锟斤拷锟斤拷锟斤拷锟?
 		while (res->next())
 		{
 			std::cout << "Check Email: " << res->getString("email") << std::endl;
@@ -211,14 +194,11 @@ bool MysqlDao::UpdatePwd(const std::string &name, const std::string &newpwd)
 			return false;
 		}
 
-		// 准锟斤拷锟斤拷询锟斤拷锟?
 		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("UPDATE user SET pwd = ? WHERE name = ?"));
 
-		// 锟襟定诧拷锟斤拷
 		pstmt->setString(2, name);
 		pstmt->setString(1, newpwd);
 
-		// 执锟叫革拷锟斤拷
 		int updateCount = pstmt->executeUpdate();
 
 		std::cout << "Updated rows: " << updateCount << std::endl;
@@ -235,35 +215,33 @@ bool MysqlDao::UpdatePwd(const std::string &name, const std::string &newpwd)
 	}
 }
 
-bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserInfo& userInfo) {
+bool MysqlDao::CheckPwd(const std::string &email, const std::string &pwd, UserInfo &userInfo)
+{
 	auto con = pool_->getConnection();
-	if (con == nullptr) {
+	if (con == nullptr)
+	{
 		return false;
 	}
 
-	Defer defer([this, &con]() {
-		pool_->returnConnection(std::move(con));
-		});
+	Defer defer([this, &con]()
+				{ pool_->returnConnection(std::move(con)); });
 
-	try {
-
-
-		// 鍑嗗SQL璇彞
+	try
+	{
 		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("SELECT * FROM user WHERE email = ?"));
-		pstmt->setString(1, email); // 灏唘sername鏇挎崲涓轰綘瑕佹煡璇㈢殑鐢ㄦ埛鍚?
+		pstmt->setString(1, email);
 
-		// 鎵ц鏌ヨ
 		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
 		std::string origin_pwd = "";
-		// 閬嶅巻缁撴灉闆?
-		while (res->next()) {
+		while (res->next())
+		{
 			origin_pwd = res->getString("pwd");
-			// 杈撳嚭鏌ヨ鍒扮殑瀵嗙爜
 			std::cout << "Password: " << origin_pwd << std::endl;
 			break;
 		}
 
-		if (pwd != origin_pwd) {
+		if (pwd != origin_pwd)
+		{
 			return false;
 		}
 		userInfo.name = res->getString("name");
@@ -272,7 +250,8 @@ bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserIn
 		userInfo.pwd = origin_pwd;
 		return true;
 	}
-	catch (sql::SQLException& e) {
+	catch (sql::SQLException &e)
+	{
 		std::cerr << "SQLException: " << e.what();
 		std::cerr << " (MySQL error code: " << e.getErrorCode();
 		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
@@ -292,17 +271,10 @@ bool MysqlDao::TestProcedure(const std::string &email, int &uid, std::string &na
 
 		Defer defer([this, &con]()
 					{ pool_->returnConnection(std::move(con)); });
-		// 准锟斤拷锟斤拷锟矫存储锟斤拷锟斤拷
 		std::unique_ptr<sql::PreparedStatement> stmt(con->_con->prepareStatement("CALL test_procedure(?,@userId,@userName)"));
-		// 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟?
 		stmt->setString(1, email);
 
-		// 锟斤拷锟斤拷PreparedStatement锟斤拷直锟斤拷支锟斤拷注锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟揭癸拷没峄帮拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟饺★拷锟斤拷锟斤拷锟斤拷锟斤拷值
-
-		// 执锟叫存储锟斤拷锟斤拷
 		stmt->execute();
-		// 锟斤拷锟斤拷娲拷锟斤拷锟斤拷锟斤拷锟斤拷嘶峄帮拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟绞斤拷锟饺★拷锟斤拷锟斤拷锟斤拷锟斤拷值锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟街达拷锟絊ELECT锟斤拷询锟斤拷锟斤拷取锟斤拷锟斤拷
-		// 锟斤拷锟界，锟斤拷锟斤拷娲拷锟斤拷锟斤拷锟斤拷锟斤拷锟揭伙拷锟斤拷峄帮拷锟斤拷锟紷result锟斤拷锟芥储锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷取锟斤拷
 		std::unique_ptr<sql::Statement> stmtResult(con->_con->createStatement());
 		std::unique_ptr<sql::ResultSet> res(stmtResult->executeQuery("SELECT @userId AS uid"));
 		if (!(res->next()))
@@ -347,7 +319,6 @@ bool MysqlDao::AddFriendApply(const int &from, const int &to,
 
 	try
 	{
-		// 准锟斤拷SQL锟斤拷锟?
 		std::unique_ptr<sql::PreparedStatement> pstmt(
 			con->_con->prepareStatement("INSERT INTO friend_apply (from_uid, to_uid, descs, back_name) "
 										"values (?,?,?,?) "
@@ -358,7 +329,6 @@ bool MysqlDao::AddFriendApply(const int &from, const int &to,
 		pstmt->setString(4, back_name);
 		pstmt->setString(5, desc);
 		pstmt->setString(6, back_name);
-		// 执锟叫革拷锟斤拷
 		int rowAffected = pstmt->executeUpdate();
 		if (rowAffected < 0)
 		{
@@ -390,13 +360,10 @@ bool MysqlDao::AuthFriendApply(const int &from, const int &to)
 
 	try
 	{
-		// 准锟斤拷SQL锟斤拷锟?
 		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("UPDATE friend_apply SET status = 1 "
 																				  "WHERE from_uid = ? AND to_uid = ?"));
-		// 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷时from锟斤拷锟斤拷证时to
 		pstmt->setInt(1, to); // from id
 		pstmt->setInt(2, from);
-		// 执锟叫革拷锟斤拷
 		int rowAffected = pstmt->executeUpdate();
 		if (rowAffected < 0)
 		{
@@ -429,14 +396,11 @@ bool MysqlDao::AddFriend(const int &from, const int &to, std::string back_name,
 
 	try
 	{
-
-		// 锟斤拷始锟斤拷锟斤拷
 		con->_con->setAutoCommit(false);
 		std::string reverse_back;
 		std::string apply_desc;
 
 		{
-			// 1. 锟斤拷锟斤拷锟斤拷锟斤拷取
 			std::unique_ptr<sql::PreparedStatement> selStmt(con->_con->prepareStatement(
 				"SELECT back_name, descs "
 				"FROM friend_apply "
@@ -454,14 +418,12 @@ bool MysqlDao::AddFriend(const int &from, const int &to, std::string back_name,
 			}
 			else
 			{
-				// 没锟叫讹拷应锟斤拷锟斤拷锟斤拷锟铰硷拷锟街憋拷锟?rollback 锟斤拷锟斤拷锟斤拷失锟斤拷
 				con->_con->rollback();
 				return false;
 			}
 		}
 
 		{
-			// 2. 执锟斤拷锟斤拷锟斤拷锟侥革拷锟斤拷
 			std::unique_ptr<sql::PreparedStatement> updStmt(con->_con->prepareStatement(
 				"UPDATE friend_apply "
 				"SET status = 1 "
@@ -472,21 +434,17 @@ bool MysqlDao::AddFriend(const int &from, const int &to, std::string back_name,
 
 			if (updStmt->executeUpdate() != 1)
 			{
-				// 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟皆ｏ拷锟截癸拷
 				con->_con->rollback();
 				return false;
 			}
 		}
 
 		{
-			// 3. 准锟斤拷锟斤拷一锟斤拷SQL锟斤拷锟? 锟斤拷锟斤拷锟斤拷证锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
 			std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("INSERT IGNORE INTO friend(self_id, friend_id, back) "
 																					  "VALUES (?, ?, ?) "));
-			// 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷时from锟斤拷锟斤拷证时to
 			pstmt->setInt(1, from); // from id
 			pstmt->setInt(2, to);
 			pstmt->setString(3, back_name);
-			// 执锟叫革拷锟斤拷
 			int rowAffected = pstmt->executeUpdate();
 			if (rowAffected < 0)
 			{
@@ -494,14 +452,11 @@ bool MysqlDao::AddFriend(const int &from, const int &to, std::string back_name,
 				return false;
 			}
 
-			// 准锟斤拷锟节讹拷锟斤拷SQL锟斤拷洌拷锟斤拷锟斤拷锟斤拷敕斤拷锟斤拷锟斤拷锟斤拷锟?
 			std::unique_ptr<sql::PreparedStatement> pstmt2(con->_con->prepareStatement("INSERT IGNORE INTO friend(self_id, friend_id, back) "
 																					   "VALUES (?, ?, ?) "));
-			// 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷时from锟斤拷锟斤拷证时to
 			pstmt2->setInt(1, to); // from id
 			pstmt2->setInt(2, from);
 			pstmt2->setString(3, reverse_back);
-			// 执锟叫革拷锟斤拷
 			int rowAffected2 = pstmt2->executeUpdate();
 			if (rowAffected2 < 0)
 			{
@@ -510,7 +465,6 @@ bool MysqlDao::AddFriend(const int &from, const int &to, std::string back_name,
 			}
 		}
 
-		// 4. 锟斤拷锟斤拷 chat_thread
 		long long threadId = 0;
 		{
 			std::unique_ptr<sql::PreparedStatement> threadStmt(con->_con->prepareStatement(
@@ -532,7 +486,6 @@ bool MysqlDao::AddFriend(const int &from, const int &to, std::string back_name,
 			}
 		}
 
-		// 5. 锟斤拷锟斤拷 private_chat
 		{
 			std::unique_ptr<sql::PreparedStatement> pcStmt(con->_con->prepareStatement(
 				"INSERT INTO private_chat(thread_id, user1_id, user2_id) VALUES (?, ?, ?)"));
@@ -544,7 +497,6 @@ bool MysqlDao::AddFriend(const int &from, const int &to, std::string back_name,
 				return false;
 		}
 
-		// 6. 锟斤拷选锟斤拷锟斤拷锟斤拷锟绞硷拷锟较拷锟?chat_message
 		if (apply_desc.empty() == false)
 		{
 			std::unique_ptr<sql::PreparedStatement> msgStmt(con->_con->prepareStatement(
@@ -620,7 +572,6 @@ bool MysqlDao::AddFriend(const int &from, const int &to, std::string back_name,
 			}
 		}
 
-		// 锟结交锟斤拷锟斤拷
 		con->_con->commit();
 		std::cout << "addfriend insert friends success" << std::endl;
 
@@ -628,7 +579,6 @@ bool MysqlDao::AddFriend(const int &from, const int &to, std::string back_name,
 	}
 	catch (sql::SQLException &e)
 	{
-		// 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷螅毓锟斤拷锟斤拷锟?
 		if (con)
 		{
 			con->_con->rollback();
@@ -655,14 +605,11 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(int uid)
 
 	try
 	{
-		// 准锟斤拷SQL锟斤拷锟?
 		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("SELECT * FROM user WHERE uid = ?"));
-		pstmt->setInt(1, uid); // 锟斤拷uid锟芥换为锟斤拷要锟斤拷询锟斤拷uid
+		pstmt->setInt(1, uid);
 
-		// 执锟叫诧拷询
 		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
 		std::shared_ptr<UserInfo> user_ptr = nullptr;
-		// 锟斤拷锟斤拷锟斤拷锟斤拷锟?
 		while (res->next())
 		{
 			user_ptr.reset(new UserInfo);
@@ -700,14 +647,11 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(std::string name)
 
 	try
 	{
-		// 准锟斤拷SQL锟斤拷锟?
 		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("SELECT * FROM user WHERE name = ?"));
-		pstmt->setString(1, name); // 锟斤拷uid锟芥换为锟斤拷要锟斤拷询锟斤拷uid
+		pstmt->setString(1, name);
 
-		// 执锟叫诧拷询
 		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
 		std::shared_ptr<UserInfo> user_ptr = nullptr;
-		// 锟斤拷锟斤拷锟斤拷锟斤拷锟?
 		while (res->next())
 		{
 			user_ptr.reset(new UserInfo);
@@ -745,17 +689,14 @@ bool MysqlDao::GetApplyList(int touid, std::vector<std::shared_ptr<ApplyInfo>> &
 
 	try
 	{
-		// 准锟斤拷SQL锟斤拷锟? 锟斤拷锟斤拷锟斤拷始id锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟叫憋拷
 		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("select apply.from_uid, apply.status, user.name, "
 																				  "user.nick, user.sex, user.icon, user.desc from friend_apply as apply join user on apply.from_uid = user.uid where apply.to_uid = ? "
 																				  "and apply.id > ? order by apply.id ASC LIMIT ? "));
 
-		pstmt->setInt(1, touid); // 锟斤拷uid锟芥换为锟斤拷要锟斤拷询锟斤拷uid
-		pstmt->setInt(2, begin); // 锟斤拷始id
-		pstmt->setInt(3, limit); // 偏锟斤拷锟斤拷
-		// 执锟叫诧拷询
+		pstmt->setInt(1, touid);
+		pstmt->setInt(2, begin);
+		pstmt->setInt(3, limit);
 		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
-		// 锟斤拷锟斤拷锟斤拷锟斤拷锟?
 		while (res->next())
 		{
 			auto name = res->getString("name");
@@ -793,19 +734,15 @@ bool MysqlDao::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo>>
 
 	try
 	{
-		// 准锟斤拷SQL锟斤拷锟? 锟斤拷锟斤拷锟斤拷始id锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟叫憋拷
 		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("select * from friend where self_id = ? "));
 
-		pstmt->setInt(1, self_id); // 锟斤拷uid锟芥换为锟斤拷要锟斤拷询锟斤拷uid
+		pstmt->setInt(1, self_id);
 
-		// 执锟叫诧拷询
 		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
-		// 锟斤拷锟斤拷锟斤拷锟斤拷锟?
 		while (res->next())
 		{
 			auto friend_id = res->getInt("friend_id");
 			auto back = res->getString("back");
-			// 锟斤拷一锟轿诧拷询friend_id锟斤拷应锟斤拷锟斤拷息
 			auto user_info = GetUser(friend_id);
 			if (user_info == nullptr)
 			{
@@ -828,7 +765,6 @@ bool MysqlDao::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo>>
 	return true;
 }
 
-// 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟絣oadMore, nextLastId
 bool MysqlDao::GetUserThreads(
 	int64_t userId,
 	int64_t lastId,
@@ -837,7 +773,6 @@ bool MysqlDao::GetUserThreads(
 	bool &loadMore,
 	int &nextLastId)
 {
-	// 锟斤拷始状态
 	loadMore = false;
 	nextLastId = lastId;
 	threads.clear();
@@ -853,7 +788,6 @@ bool MysqlDao::GetUserThreads(
 
 	try
 	{
-		// 锟睫改猴拷锟絊QL锟斤拷去锟斤拷CTE锟斤拷直锟斤拷使锟斤拷UNION ALL
 		std::string sql =
 			"SELECT thread_id, 'private' AS type, user1_id, user2_id "
 			"  FROM private_chat "
@@ -870,19 +804,16 @@ bool MysqlDao::GetUserThreads(
 		std::unique_ptr<sql::PreparedStatement> pstmt(
 			conn->prepareStatement(sql));
 
-		// 锟襟定诧拷锟斤拷
 		int idx = 1;
-		pstmt->setInt64(idx++, userId);		// private.user1_id
-		pstmt->setInt64(idx++, userId);		// private.user2_id
-		pstmt->setInt64(idx++, lastId);		// private.thread_id > lastId
-		pstmt->setInt64(idx++, userId);		// group.user_id
-		pstmt->setInt64(idx++, lastId);		// group.thread_id > lastId
-		pstmt->setInt(idx++, pageSize + 1); // LIMIT pageSize+1
+		pstmt->setInt64(idx++, userId);
+		pstmt->setInt64(idx++, userId);
+		pstmt->setInt64(idx++, lastId);
+		pstmt->setInt64(idx++, userId);
+		pstmt->setInt64(idx++, lastId);
+		pstmt->setInt(idx++, pageSize + 1);
 
-		// 执锟斤拷
 		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
 
-		// 锟饺帮拷锟斤拷锟斤拷锟叫讹拷锟斤拷锟斤拷时锟斤拷锟斤拷
 		std::vector<std::shared_ptr<ChatThreadInfo>> tmp;
 		while (res->next())
 		{
@@ -894,20 +825,17 @@ bool MysqlDao::GetUserThreads(
 			tmp.push_back(cti);
 		}
 
-		// 锟叫讹拷锟角凤拷锟饺★拷锟揭伙拷锟?
 		if ((int)tmp.size() > pageSize)
 		{
 			loadMore = true;
-			tmp.pop_back(); // 锟斤拷锟斤拷锟斤拷 pageSize+1 锟斤拷
+			tmp.pop_back();
 		}
 
-		// 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷荩锟斤拷锟斤拷锟?nextLastId 为锟斤拷锟揭伙拷锟斤拷锟?thread_id
 		if (!tmp.empty())
 		{
 			nextLastId = tmp.back()->_thread_id;
 		}
 
-		// 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟?
 		threads = std::move(tmp);
 	}
 	catch (sql::SQLException &e)
@@ -933,9 +861,7 @@ bool MysqlDao::CreatePrivateChat(int user1_id, int user2_id, int &thread_id)
 	auto &conn = con->_con;
 	try
 	{
-		// 锟斤拷锟斤拷锟斤拷锟斤拷
 		conn->setAutoCommit(false);
-		// 1. 锟斤拷询锟角凤拷锟窖达拷锟斤拷私锟侥诧拷锟斤拷锟叫硷拷锟斤拷
 		int uid1 = std::min(user1_id, user2_id);
 		int uid2 = std::max(user1_id, user2_id);
 		std::string check_sql =
@@ -950,28 +876,23 @@ bool MysqlDao::CreatePrivateChat(int user1_id, int user2_id, int &thread_id)
 
 		if (res->next())
 		{
-			// 锟斤拷锟斤拷汛锟斤拷冢锟斤拷锟斤拷馗锟?thread_id
 			thread_id = res->getInt("thread_id");
-			conn->commit(); // 锟结交锟斤拷锟斤拷
+			conn->commit();
 			return true;
 		}
 
-		// 2. 锟斤拷锟轿达拷业锟斤拷锟斤拷锟斤拷锟斤拷碌锟?chat_thread 锟斤拷 private_chat 锟斤拷录
-		// 锟斤拷 chat_thread 锟斤拷锟斤拷锟斤拷锟铰硷拷录
 		std::string insert_chat_thread_sql =
 			"INSERT INTO chat_thread (type, created_at) VALUES ('private', NOW());";
 
 		std::unique_ptr<sql::PreparedStatement> pstmt_insert_thread(conn->prepareStatement(insert_chat_thread_sql));
 		pstmt_insert_thread->executeUpdate();
 
-		// 锟斤拷取锟铰诧拷锟斤拷锟?thread_id
 		std::string get_last_insert_id_sql = "SELECT LAST_INSERT_ID();";
 		std::unique_ptr<sql::PreparedStatement> pstmt_last_insert_id(conn->prepareStatement(get_last_insert_id_sql));
 		std::unique_ptr<sql::ResultSet> res_last_id(pstmt_last_insert_id->executeQuery());
 		res_last_id->next();
 		thread_id = res_last_id->getInt(1);
 
-		// 3. 锟斤拷 private_chat 锟斤拷锟斤拷锟斤拷锟铰硷拷录
 		std::string insert_private_chat_sql =
 			"INSERT INTO private_chat (thread_id, user1_id, user2_id, created_at) "
 			"VALUES (?, ?, ?, NOW());";
@@ -982,7 +903,6 @@ bool MysqlDao::CreatePrivateChat(int user1_id, int user2_id, int &thread_id)
 		pstmt_insert_private->setInt64(3, uid2);
 		pstmt_insert_private->executeUpdate();
 
-		// 锟结交锟斤拷锟斤拷
 		conn->commit();
 		return true;
 	}
@@ -1010,7 +930,6 @@ std::shared_ptr<PageResult> MysqlDao::LoadChatMsg(int thread_id, int last_messag
 	{
 		auto page_res = std::make_shared<PageResult>();
 		page_res->load_more = false;
-		// SQL锟斤拷锟斤拷取一锟斤拷锟斤拷锟斤拷锟斤拷锟叫讹拷锟角凤拷锟叫革拷锟斤拷
 		const std::string sql = R"(
         SELECT message_id, thread_id, sender_id, recv_id, content,
                created_at, updated_at, status,msg_type
@@ -1030,7 +949,6 @@ std::shared_ptr<PageResult> MysqlDao::LoadChatMsg(int thread_id, int last_messag
 
 		auto rs = std::unique_ptr<sql::ResultSet>(pstmt->executeQuery());
 
-		// 锟斤拷取 fetch_limit 锟斤拷锟斤拷录
 		while (rs->next())
 		{
 			ChatMessage msg;
@@ -1050,8 +968,6 @@ std::shared_ptr<PageResult> MysqlDao::LoadChatMsg(int thread_id, int last_messag
 			page_res->load_more = true;
 		}
 
-		// bug锟斤拷录
-		// page_res->next_cursor = page_res->messages.back().message_id;
 		if (!page_res->messages.empty())
 		{
 			page_res->next_cursor = page_res->messages.back().message_id;
@@ -1085,7 +1001,6 @@ bool MysqlDao::AddChatMsg(std::vector<std::shared_ptr<ChatMessage>> &chat_datas)
 
 	try
 	{
-		// 锟截憋拷锟皆讹拷锟结交锟斤拷锟斤拷锟街讹拷锟斤拷锟斤拷锟斤拷锟斤拷
 		conn->setAutoCommit(false);
 		auto pstmt = std::unique_ptr<sql::PreparedStatement>(
 			conn->prepareStatement(
@@ -1095,7 +1010,6 @@ bool MysqlDao::AddChatMsg(std::vector<std::shared_ptr<ChatMessage>> &chat_datas)
 
 		for (auto &msg : chat_datas)
 		{
-			// 锟斤拷通锟街讹拷
 			pstmt->setUInt64(1, msg->thread_id);
 			pstmt->setUInt64(2, msg->sender_id);
 			pstmt->setUInt64(3, msg->recv_id);
@@ -1108,7 +1022,6 @@ bool MysqlDao::AddChatMsg(std::vector<std::shared_ptr<ChatMessage>> &chat_datas)
 			pstmt->setInt(8, msg->msg_type);
 			pstmt->executeUpdate();
 
-			// 2. 取 LAST_INSERT_ID()
 			std::unique_ptr<sql::Statement> keyStmt(
 				conn->createStatement());
 			std::unique_ptr<sql::ResultSet> rs(
@@ -1148,7 +1061,6 @@ bool MysqlDao::AddChatMsg(std::shared_ptr<ChatMessage> chat_data)
 
 	try
 	{
-		// 锟截憋拷锟皆讹拷锟结交锟斤拷锟斤拷锟街讹拷锟斤拷锟斤拷锟斤拷锟斤拷
 		conn->setAutoCommit(false);
 		auto pstmt = std::unique_ptr<sql::PreparedStatement>(
 			conn->prepareStatement(
@@ -1156,7 +1068,6 @@ bool MysqlDao::AddChatMsg(std::shared_ptr<ChatMessage> chat_data)
 				"(thread_id, sender_id, recv_id, content, created_at, updated_at, status,msg_type) "
 				"VALUES (?, ?, ?, ?, ?, ?, ?,?)"));
 
-		// 锟襟定诧拷锟斤拷
 		pstmt->setUInt64(1, chat_data->thread_id);
 		pstmt->setUInt64(2, chat_data->sender_id);
 		pstmt->setUInt64(3, chat_data->recv_id);
@@ -1168,7 +1079,6 @@ bool MysqlDao::AddChatMsg(std::shared_ptr<ChatMessage> chat_data)
 
 		pstmt->executeUpdate();
 
-		// 锟斤拷取锟斤拷锟斤拷锟斤拷锟斤拷
 		std::unique_ptr<sql::Statement> keyStmt(
 			conn->createStatement());
 		std::unique_ptr<sql::ResultSet> rs(
@@ -1237,18 +1147,19 @@ std::shared_ptr<ChatMessage> MysqlDao::GetChatMsg(int message_id)
 	}
 }
 
-bool MysqlDao::UpdateHeadInfo(int uid, const std::string& icon)
+bool MysqlDao::UpdateHeadInfo(int uid, const std::string &icon)
 {
 	auto con = pool_->getConnection();
-	if (!con) {
+	if (!con)
+	{
 		return false;
 	}
-	Defer defer([this, &con]() {
-		pool_->returnConnection(std::move(con));
-		});
+	Defer defer([this, &con]()
+				{ pool_->returnConnection(std::move(con)); });
 
-	auto& conn = con->_con;
-	try {
+	auto &conn = con->_con;
+	try
+	{
 		std::string update_sql =
 			"UPDATE user SET icon = ? WHERE uid = ?;";
 
@@ -1258,15 +1169,16 @@ bool MysqlDao::UpdateHeadInfo(int uid, const std::string& icon)
 
 		int affected_rows = pstmt->executeUpdate();
 
-		// 妫€鏌ユ槸鍚︽湁琛岃鏇存柊锛堝彲閫夛級
-		if (affected_rows == 0) {
+		if (affected_rows == 0)
+		{
 			std::cerr << "No user found with uid: " << uid << std::endl;
 			return false;
 		}
 
 		return true;
 	}
-	catch (sql::SQLException& e) {
+	catch (sql::SQLException &e)
+	{
 		std::cerr << "SQLException in UpdateHeadInfo: " << e.what() << std::endl;
 		return false;
 	}
@@ -1276,15 +1188,16 @@ bool MysqlDao::UpdateHeadInfo(int uid, const std::string& icon)
 bool MysqlDao::UpdateUploadStatus(int chat_message_id)
 {
 	auto con = pool_->getConnection();
-	if (!con) {
+	if (!con)
+	{
 		return false;
 	}
-	Defer defer([this, &con]() {
-		pool_->returnConnection(std::move(con));
-		});
+	Defer defer([this, &con]()
+				{ pool_->returnConnection(std::move(con)); });
 
-	auto& conn = con->_con;
-	try {
+	auto &conn = con->_con;
+	try
+	{
 		std::string update_sql =
 			"UPDATE chat_message SET status = ? WHERE message_id = ?;";
 
@@ -1294,45 +1207,45 @@ bool MysqlDao::UpdateUploadStatus(int chat_message_id)
 
 		int affected_rows = pstmt->executeUpdate();
 
-		// 妫€鏌ユ槸鍚︽湁琛岃鏇存柊锛堝彲閫夛級
-		if (affected_rows == 0) {
+		if (affected_rows == 0)
+		{
 			std::cerr << "No chat message found with chat_message_id: " << chat_message_id << std::endl;
 			return false;
 		}
 
 		return true;
 	}
-	catch (sql::SQLException& e) {
+	catch (sql::SQLException &e)
+	{
 		std::cerr << "SQLException in UpdateUploadStatus: " << e.what() << std::endl;
 		return false;
 	}
 	return false;
 }
 
-std::shared_ptr<ChatImgInfo> MysqlDao::GetImgInfoByMsgId(int message_id) {
+std::shared_ptr<ChatImgInfo> MysqlDao::GetImgInfoByMsgId(int message_id)
+{
 	auto con = pool_->getConnection();
-	if (!con) {
+	if (!con)
+	{
 		return nullptr;
 	}
-	Defer defer([this, &con]() {
-		pool_->returnConnection(std::move(con));
-		});
+	Defer defer([this, &con]()
+				{ pool_->returnConnection(std::move(con)); });
 
-	auto& conn = con->_con;
-	try {
+	auto &conn = con->_con;
+	try
+	{
 		std::string update_sql =
 			"select message_id, sender_id, recv_id, content from  WHERE message_id = ?;";
 
-		// 鍑嗗鏌ヨ璇彞
 		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(update_sql));
 
-		// 缁戝畾鍙傛暟
 		pstmt->setInt(1, message_id);
 
-		// 鎵ц鏌ヨ
 		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
-		// 閬嶅巻缁撴灉闆?
-		while (res->next()) {
+		while (res->next())
+		{
 			auto message_id = res->getInt64("message_id");
 			auto sender_id = res->getInt64("sender_id");
 			auto recv_id = res->getInt64("recv_id");
@@ -1342,38 +1255,40 @@ std::shared_ptr<ChatImgInfo> MysqlDao::GetImgInfoByMsgId(int message_id) {
 		}
 		return nullptr;
 	}
-	catch (sql::SQLException& e) {
+	catch (sql::SQLException &e)
+	{
 		std::cerr << "SQLException in UpdateUploadStatus: " << e.what() << std::endl;
 		return nullptr;
 	}
 	return nullptr;
 }
 
-std::shared_ptr<ChatMessage> MysqlDao::GetChatMsgById(int message_id) {
+std::shared_ptr<ChatMessage> MysqlDao::GetChatMsgById(int message_id)
+{
 	auto con = pool_->getConnection();
-	if (!con) {
+	if (!con)
+	{
 		return nullptr;
 	}
 
-	Defer defer([this, &con]() {
-		pool_->returnConnection(std::move(con));
-		});
+	Defer defer([this, &con]()
+				{ pool_->returnConnection(std::move(con)); });
 
-	auto& conn = con->_con;
+	auto &conn = con->_con;
 
-	try {
+	try
+	{
 		auto pstmt = std::unique_ptr<sql::PreparedStatement>(
 			conn->prepareStatement(
 				"SELECT message_id, thread_id, sender_id, recv_id, "
 				"content, created_at, updated_at, status , msg_type "
-				"FROM chat_message WHERE message_id = ?"
-			)
-		);
+				"FROM chat_message WHERE message_id = ?"));
 
 		pstmt->setUInt64(1, message_id);
 		auto rs = std::unique_ptr<sql::ResultSet>(pstmt->executeQuery());
 
-		if (rs->next()) {
+		if (rs->next())
+		{
 			auto msg = std::make_shared<ChatMessage>();
 			msg->message_id = rs->getUInt64("message_id");
 			msg->thread_id = rs->getUInt64("thread_id");
@@ -1387,11 +1302,10 @@ std::shared_ptr<ChatMessage> MysqlDao::GetChatMsgById(int message_id) {
 		}
 
 		return nullptr;
-
 	}
-	catch (sql::SQLException& e) {
+	catch (sql::SQLException &e)
+	{
 		std::cerr << "GetChatMessageById SQLException: " << e.what() << std::endl;
 		return nullptr;
 	}
 }
-
