@@ -85,6 +85,7 @@ bool ChatGrpcClient::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<
 		userinfo->sex = root["sex"].asInt();
 		userinfo->icon = root["icon"].asString();
 		Logger::Debug("User login uid is  {} name  is  pwd is  email is ", userinfo->uid, userinfo->name, userinfo->pwd, userinfo->email);
+		return true;
 	}
 	else
 	{
@@ -110,7 +111,9 @@ bool ChatGrpcClient::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<
 		redis_root["sex"] = userinfo->sex;
 		redis_root["icon"] = userinfo->icon;
 		RedisMgr::GetInstance()->Set(base_key, redis_root.toStyledString());
+		return true;
 	}
+	return false;
 }
 
 AuthFriendRsp ChatGrpcClient::NotifyAuthFriend(std::string server_name, const AuthFriendReq &req)
