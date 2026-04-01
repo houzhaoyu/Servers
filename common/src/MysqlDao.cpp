@@ -247,7 +247,7 @@ bool MysqlDao::CheckPwd(const std::string &email, const std::string &pwd, UserIn
 	}
 }
 
-bool MysqlDao::TestProcedure(const std::string &email, int &uid, std::string &name)
+bool MysqlDao::TestProcedure(const std::string &email, UserIdType&uid, std::string &name)
 {
 	auto con = pool_->getConnection();
 	try
@@ -567,7 +567,7 @@ bool MysqlDao::AddFriend(const int &from, const int &to, std::string back_name,
 	return true;
 }
 
-std::shared_ptr<UserInfo> MysqlDao::GetUser(int uid)
+std::shared_ptr<UserInfo> MysqlDao::GetUser(UserIdType uid)
 {
 	auto con = pool_->getConnection();
 	if (con == nullptr)
@@ -647,7 +647,7 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(std::string name)
 	}
 }
 
-bool MysqlDao::GetApplyList(int touid, std::vector<std::shared_ptr<ApplyInfo>> &applyList, int begin, int limit)
+bool MysqlDao::GetApplyList(UserIdType touid, std::vector<std::shared_ptr<ApplyInfo>> &applyList, int begin, int limit)
 {
 	auto con = pool_->getConnection();
 	if (con == nullptr)
@@ -689,7 +689,7 @@ bool MysqlDao::GetApplyList(int touid, std::vector<std::shared_ptr<ApplyInfo>> &
 	}
 }
 
-bool MysqlDao::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo>> &user_info_list)
+bool MysqlDao::GetFriendList(UserIdType self_id, std::vector<std::shared_ptr<UserInfo>> &user_info_list)
 {
 
 	auto con = pool_->getConnection();
@@ -733,8 +733,8 @@ bool MysqlDao::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo>>
 }
 
 bool MysqlDao::GetUserThreads(
-	int64_t userId,
-	int64_t lastId,
+	UserIdType userId,
+	UserIdType lastId,
 	int pageSize,
 	std::vector<std::shared_ptr<ChatThreadInfo>> &threads,
 	bool &loadMore,
@@ -772,10 +772,10 @@ bool MysqlDao::GetUserThreads(
 			conn->prepareStatement(sql));
 
 		int idx = 1;
-		pstmt->setInt64(idx++, userId);
-		pstmt->setInt64(idx++, userId);
+		pstmt->setInt(idx++, userId);
+		pstmt->setInt(idx++, userId);
 		pstmt->setInt64(idx++, lastId);
-		pstmt->setInt64(idx++, userId);
+		pstmt->setInt(idx++, userId);
 		pstmt->setInt64(idx++, lastId);
 		pstmt->setInt(idx++, pageSize + 1);
 
@@ -787,8 +787,8 @@ bool MysqlDao::GetUserThreads(
 			auto cti = std::make_shared<ChatThreadInfo>();
 			cti->_thread_id = res->getInt64("thread_id");
 			cti->_type = res->getString("type");
-			cti->_user1_id = res->getInt64("user1_id");
-			cti->_user2_id = res->getInt64("user2_id");
+			cti->_user1_id = res->getInt("user1_id");
+			cti->_user2_id = res->getInt("user2_id");
 			tmp.push_back(cti);
 		}
 
@@ -814,7 +814,7 @@ bool MysqlDao::GetUserThreads(
 	return true;
 }
 
-bool MysqlDao::CreatePrivateChat(int user1_id, int user2_id, int &thread_id)
+bool MysqlDao::CreatePrivateChat(UserIdType user1_id, UserIdType user2_id, int &thread_id)
 {
 	auto con = pool_->getConnection();
 	if (!con)
@@ -827,16 +827,16 @@ bool MysqlDao::CreatePrivateChat(int user1_id, int user2_id, int &thread_id)
 	try
 	{
 		conn->setAutoCommit(false);
-		int uid1 = std::min(user1_id, user2_id);
-		int uid2 = std::max(user1_id, user2_id);
+		UserIdType uid1 = std::min(user1_id, user2_id);
+		UserIdType uid2 = std::max(user1_id, user2_id);
 		std::string check_sql =
 			"SELECT thread_id FROM private_chat "
 			"WHERE (user1_id = ? AND user2_id = ?) "
 			"FOR UPDATE;";
 
 		std::unique_ptr<sql::PreparedStatement> pstmt(conn->prepareStatement(check_sql));
-		pstmt->setInt64(1, uid1);
-		pstmt->setInt64(2, uid2);
+		pstmt->setInt(1, uid1);
+		pstmt->setInt(2, uid2);
 		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
 
 		if (res->next())
@@ -864,8 +864,8 @@ bool MysqlDao::CreatePrivateChat(int user1_id, int user2_id, int &thread_id)
 
 		std::unique_ptr<sql::PreparedStatement> pstmt_insert_private(conn->prepareStatement(insert_private_chat_sql));
 		pstmt_insert_private->setInt64(1, thread_id);
-		pstmt_insert_private->setInt64(2, uid1);
-		pstmt_insert_private->setInt64(3, uid2);
+		pstmt_insert_private->setInt(2, uid1);
+		pstmt_insert_private->setInt(3, uid2);
 		pstmt_insert_private->executeUpdate();
 
 		conn->commit();
@@ -1112,7 +1112,7 @@ std::shared_ptr<ChatMessage> MysqlDao::GetChatMsg(int message_id)
 	}
 }
 
-bool MysqlDao::UpdateHeadInfo(int uid, const std::string &icon)
+bool MysqlDao::UpdateHeadInfo(UserIdType uid, const std::string &icon)
 {
 	auto con = pool_->getConnection();
 	if (!con)

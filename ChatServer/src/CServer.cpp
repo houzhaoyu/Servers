@@ -96,7 +96,7 @@ void CServer::on_timer(const boost::system::error_code &ec)
 {
 	if (ec)
 	{
-		std::cout << "timer error: " << ec.message() << std::endl;
+		Logger::Error("CServer::on_timer - timer error: {}", ec.message());
 		return;
 	}
 	std::vector<std::shared_ptr<ChatSession>> _expired_sessions;

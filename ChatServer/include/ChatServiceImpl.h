@@ -43,7 +43,7 @@ public:
 	Status NotifyChatImgMsg(::grpc::ServerContext* context,
 		const ::message::NotifyChatImgReq* request, ::message::NotifyChatImgRsp* response) override;
 
-	bool GetBaseInfo(std::string base_key, int uid, std::shared_ptr<UserInfo>& userinfo);
+	bool GetBaseInfo(std::string base_key, UserIdType uid, std::shared_ptr<UserInfo>& userinfo);
 
 	//接受rpc踢人请求
 	Status NotifyKickUser(::grpc::ServerContext* context,

@@ -23,6 +23,7 @@
 
 #include "ConfigMgr.h"
 #include "RedisMgr.h"
+#include "type.h"
 
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http = beast::http;           // from <boost/beast/http.hpp>
@@ -178,8 +179,8 @@ struct ChatProtocol {
 	static constexpr int MAX_RECV_QUE = CHAT_MAX_RECVQUE;
 	static constexpr int MAX_SEND_QUE = CHAT_MAX_SENDQUE;
 
-	static void Encode(char* data, short msg_id, int len) {
-		short id = boost::asio::detail::socket_ops::host_to_network_short(msg_id);
+	static void Encode(char* data, MsgIdType msg_id, int len) {
+		MsgIdType id = boost::asio::detail::socket_ops::host_to_network_short(msg_id);
 		short l = boost::asio::detail::socket_ops::host_to_network_short(len);
 
 		memcpy(data, &id, HEAD_ID_LEN);
@@ -197,8 +198,8 @@ struct FileProtocol {
 	static constexpr int MAX_RECV_QUE = FILE_MAX_RECVQUE;
 	static constexpr int MAX_SEND_QUE = FILE_MAX_SENDQUE;
 
-	static void Encode(char* data, short msg_id, int len) {
-		short id = boost::asio::detail::socket_ops::host_to_network_short(msg_id);
+	static void Encode(char* data, MsgIdType msg_id, int len) {
+		MsgIdType id = boost::asio::detail::socket_ops::host_to_network_short(msg_id);
 		int l = boost::asio::detail::socket_ops::host_to_network_long(len);
 
 		memcpy(data, &id, HEAD_ID_LEN);

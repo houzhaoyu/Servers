@@ -24,28 +24,28 @@ public:
 
     ~ChatSession() {}
 
-    void SetUserId(int uid) { _user_uid = uid; }
-    int GetUserId() const { return _user_uid; }
+    void SetUserId(UserIdType uid) { _user_uid = uid; }
+    UserIdType GetUserId() const { return _user_uid; }
 
     // 心跳检测
     bool IsHeartbeatExpired(std::time_t now);
 
     void UpdateHeartbeat();
 
-    void NotifyOffline(int uid);
+    void NotifyOffline(UserIdType uid);
     void NotifyChatImgRecv(const ::message::NotifyChatImgReq* request);
 
     void DealExceptionSession();
 
 protected:
     // ===== ProtocolSession接口实现 =====
-    bool ParseHeader(const char* data, int& msg_id, int& msg_len) override;
+    bool ParseHeader(const char* data, MsgIdType& msg_id, int& msg_len) override;
 
     void OnMessage(std::shared_ptr<RecvNode> msg) override;
 
     void OnError() override;
 
 private:
-    int _user_uid;
+    UserIdType _user_uid;
     std::atomic<time_t> _last_heartbeat;
 };

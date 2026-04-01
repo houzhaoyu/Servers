@@ -5,7 +5,7 @@
 // =========================
 // 协议解析（注意：int长度）
 // =========================
-bool FileSession::ParseHeader(const char *data, int &msg_id, int &msg_len)
+bool FileSession::ParseHeader(const char *data, MsgIdType &msg_id, int &msg_len)
 {
     memcpy(&msg_id, data, HEAD_ID_LEN);
     msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);

@@ -17,19 +17,19 @@ private:
     void RegisterHandlers() override;
 
     //业务逻辑代码
-    void UploadHeadIconReq(std::shared_ptr<FileSession> session, const short& msg_id,
+    void UploadHeadIconReq(std::shared_ptr<FileSession> session, const MsgIdType& msg_id,
         const std::string& msg_data);
-    void DownloadFileReq(std::shared_ptr<FileSession> session, const short& msg_id,
+    void DownloadFileReq(std::shared_ptr<FileSession> session, const MsgIdType& msg_id,
         const std::string& msg_data);
-    void ImageChatUploadReq(std::shared_ptr<FileSession> session, const short& msg_id,
+    void ImageChatUploadReq(std::shared_ptr<FileSession> session, const MsgIdType& msg_id,
         const std::string& msg_data);
-    void FileInfoSyncReq(std::shared_ptr<FileSession> session, const short& msg_id,
+    void FileInfoSyncReq(std::shared_ptr<FileSession> session, const MsgIdType& msg_id,
         const std::string& msg_data);
-    void ImageChatContinueUploadReq(std::shared_ptr<FileSession> session, const short& msg_id,
+    void ImageChatContinueUploadReq(std::shared_ptr<FileSession> session, const MsgIdType& msg_id,
         const std::string& msg_data);
-    void ImageChatDownInfoSyncReq(std::shared_ptr<FileSession> session, const short& msg_id,
+    void ImageChatDownInfoSyncReq(std::shared_ptr<FileSession> session, const MsgIdType& msg_id,
         const std::string& msg_data);
-    void ImageChatDownReq(std::shared_ptr<FileSession> session, const short& msg_id,
+    void ImageChatDownReq(std::shared_ptr<FileSession> session, const MsgIdType& msg_id,
         const std::string& msg_data);
 
     std::mutex _file_mtx;

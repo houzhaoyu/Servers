@@ -12,7 +12,7 @@
 
 void LogicSystem::RegisterHandlers()
 {
-	_handlers[ID_UPLOAD_HEAD_ICON_REQ] = [this](std::shared_ptr<BaseSession> session, const short &msg_id,
+	_handlers[ID_UPLOAD_HEAD_ICON_REQ] = [this](std::shared_ptr<BaseSession> session, const MsgIdType &msg_id,
 												const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<FileSession>(session);
@@ -27,7 +27,7 @@ void LogicSystem::RegisterHandlers()
 		UploadHeadIconReq(s, msg_id, msg_data);
 	};
 
-	_handlers[ID_DOWN_LOAD_FILE_REQ] = [this](std::shared_ptr<BaseSession> session, const short &msg_id,
+	_handlers[ID_DOWN_LOAD_FILE_REQ] = [this](std::shared_ptr<BaseSession> session, const MsgIdType &msg_id,
 											  const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<FileSession>(session);
@@ -42,7 +42,7 @@ void LogicSystem::RegisterHandlers()
 		DownloadFileReq(s, msg_id, msg_data);
 	};
 
-	_handlers[ID_IMG_CHAT_UPLOAD_REQ] = [this](std::shared_ptr<BaseSession> session, const short &msg_id,
+	_handlers[ID_IMG_CHAT_UPLOAD_REQ] = [this](std::shared_ptr<BaseSession> session, const MsgIdType &msg_id,
 											   const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<FileSession>(session);
@@ -57,7 +57,7 @@ void LogicSystem::RegisterHandlers()
 		ImageChatUploadReq(s, msg_id, msg_data);
 	};
 
-	_handlers[ID_FILE_INFO_SYNC_REQ] = [this](std::shared_ptr<BaseSession> session, const short &msg_id,
+	_handlers[ID_FILE_INFO_SYNC_REQ] = [this](std::shared_ptr<BaseSession> session, const MsgIdType &msg_id,
 											  const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<FileSession>(session);
@@ -72,7 +72,7 @@ void LogicSystem::RegisterHandlers()
 		FileInfoSyncReq(s, msg_id, msg_data);
 	};
 
-	_handlers[ID_IMG_CHAT_CONTINUE_UPLOAD_REQ] = [this](std::shared_ptr<BaseSession> session, const short &msg_id,
+	_handlers[ID_IMG_CHAT_CONTINUE_UPLOAD_REQ] = [this](std::shared_ptr<BaseSession> session, const MsgIdType &msg_id,
 														const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<FileSession>(session);
@@ -87,7 +87,7 @@ void LogicSystem::RegisterHandlers()
 		ImageChatContinueUploadReq(s, msg_id, msg_data);
 	};
 
-	_handlers[ID_IMG_CHAT_DOWN_INFO_SYNC_REQ] = [this](std::shared_ptr<BaseSession> session, const short &msg_id,
+	_handlers[ID_IMG_CHAT_DOWN_INFO_SYNC_REQ] = [this](std::shared_ptr<BaseSession> session, const MsgIdType &msg_id,
 													   const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<FileSession>(session);
@@ -102,7 +102,7 @@ void LogicSystem::RegisterHandlers()
 		ImageChatDownInfoSyncReq(s, msg_id, msg_data);
 	};
 
-	_handlers[ID_IMG_CHAT_DOWN_REQ] = [this](std::shared_ptr<BaseSession> session, const short &msg_id,
+	_handlers[ID_IMG_CHAT_DOWN_REQ] = [this](std::shared_ptr<BaseSession> session, const MsgIdType &msg_id,
 											 const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<FileSession>(session);
@@ -118,7 +118,7 @@ void LogicSystem::RegisterHandlers()
 	};
 }
 
-void LogicSystem::UploadHeadIconReq(std::shared_ptr<FileSession> session, const short &msg_id,
+void LogicSystem::UploadHeadIconReq(std::shared_ptr<FileSession> session, const MsgIdType &msg_id,
 									const std::string &msg_data)
 {
 	Logger::Debug("LogicSystem::UploadHeadIconReq");
@@ -187,7 +187,6 @@ void LogicSystem::UploadHeadIconReq(std::shared_ptr<FileSession> session, const 
 	std::hash<std::string> hash_fn;
 	size_t hash_value = hash_fn(name); // 生成哈希值
 	int index = hash_value % FILE_WORKER_COUNT;
-	std::cout << "Hash value: " << hash_value << std::endl;
 
 	// 第一个包
 	if (seq == 1)
@@ -240,7 +239,7 @@ void LogicSystem::UploadHeadIconReq(std::shared_ptr<FileSession> session, const 
 		index);
 }
 
-void LogicSystem::DownloadFileReq(std::shared_ptr<FileSession> session, const short &msg_id,
+void LogicSystem::DownloadFileReq(std::shared_ptr<FileSession> session, const MsgIdType &msg_id,
 								  const std::string &msg_data)
 {
 	Logger::Debug("LogicSystem::DownloadFileReq");
@@ -299,14 +298,13 @@ void LogicSystem::DownloadFileReq(std::shared_ptr<FileSession> session, const sh
 	std::hash<std::string> hash_fn;
 	size_t hash_value = hash_fn(name); // 生成哈希值
 	int index = hash_value % FILE_WORKER_COUNT;
-	std::cout << "Hash value: " << hash_value << std::endl;
 
 	FileSystem::GetInstance()->PostDownloadTaskToQue(
 		std::make_shared<DownloadTask>(session, uid, name, seq, file_path_str, callback),
 		index);
 }
 
-void LogicSystem::ImageChatUploadReq(std::shared_ptr<FileSession> session, const short &msg_id,
+void LogicSystem::ImageChatUploadReq(std::shared_ptr<FileSession> session, const MsgIdType &msg_id,
 									 const std::string &msg_data)
 {
 	Logger::Debug("LogicSystem::ImageChatUploadReq");
@@ -323,6 +321,7 @@ void LogicSystem::ImageChatUploadReq(std::shared_ptr<FileSession> session, const
 	auto last = root["last"].asInt();
 	auto file_data = root["data"].asString();
 	auto file_path = ConfigMgr::Inst().GetFileOutPath();
+	//Bug
 	auto uid = root["uid"].asInt();
 	auto sender = root["sender"].asInt();
 	auto receiver = root["receiver"].asInt();
@@ -354,7 +353,6 @@ void LogicSystem::ImageChatUploadReq(std::shared_ptr<FileSession> session, const
 	std::hash<std::string> hash_fn;
 	size_t hash_value = hash_fn(name); // 生成哈希值
 	int index = hash_value % FILE_WORKER_COUNT;
-	std::cout << "Hash value: " << hash_value << std::endl;
 
 	// 第一个包
 	if (seq == 1)
@@ -403,7 +401,7 @@ void LogicSystem::ImageChatUploadReq(std::shared_ptr<FileSession> session, const
 		index);
 }
 
-void LogicSystem::FileInfoSyncReq(std::shared_ptr<FileSession> session, const short &msg_id,
+void LogicSystem::FileInfoSyncReq(std::shared_ptr<FileSession> session, const MsgIdType &msg_id,
 								  const std::string &msg_data)
 {
 	Logger::Debug("LogicSystem::FileInfoSyncReq");
@@ -497,7 +495,7 @@ void LogicSystem::FileInfoSyncReq(std::shared_ptr<FileSession> session, const sh
 		index);
 }
 
-void LogicSystem::ImageChatContinueUploadReq(std::shared_ptr<FileSession> session, const short &msg_id,
+void LogicSystem::ImageChatContinueUploadReq(std::shared_ptr<FileSession> session, const MsgIdType &msg_id,
 											 const std::string &msg_data)
 {
 	Logger::Debug("LogicSystem::ImageChatContinueUploadReq");
@@ -591,7 +589,7 @@ void LogicSystem::ImageChatContinueUploadReq(std::shared_ptr<FileSession> sessio
 		index);
 }
 
-void LogicSystem::ImageChatDownInfoSyncReq(std::shared_ptr<FileSession> session, const short &msg_id,
+void LogicSystem::ImageChatDownInfoSyncReq(std::shared_ptr<FileSession> session, const MsgIdType &msg_id,
 										   const std::string &msg_data)
 {
 	Logger::Debug("LogicSystem::ImageChatDownInfoSyncReq");
@@ -629,7 +627,7 @@ void LogicSystem::ImageChatDownInfoSyncReq(std::shared_ptr<FileSession> session,
 	session->Send(return_str, ID_IMG_CHAT_DOWN_INFO_SYNC_RSP);
 }
 
-void LogicSystem::ImageChatDownReq(std::shared_ptr<FileSession> session, const short &msg_id,
+void LogicSystem::ImageChatDownReq(std::shared_ptr<FileSession> session, const MsgIdType &msg_id,
 								   const std::string &msg_data)
 {
 	Logger::Debug("LogicSystem::ImageChatDownReq");

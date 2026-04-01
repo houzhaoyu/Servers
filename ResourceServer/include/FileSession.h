@@ -17,17 +17,17 @@ public:
 
     ~FileSession() {}
 
-    void SetUserId(int uid) { _user_uid = uid; }
-    int GetUserId() const { return _user_uid; }
+    void SetUserId(UserIdType uid) { _user_uid = uid; }
+    UserIdType GetUserId() const { return _user_uid; }
 
 protected:
     // ===== ProtocolSession接口实现 =====
-    bool ParseHeader(const char* data, int& msg_id, int& msg_len) override;
+    bool ParseHeader(const char* data, MsgIdType& msg_id, int& msg_len) override;
 
     void OnMessage(std::shared_ptr<RecvNode> msg) override;
 
     void OnError() override;
 
 private:
-    int _user_uid;
+    UserIdType _user_uid;
 };

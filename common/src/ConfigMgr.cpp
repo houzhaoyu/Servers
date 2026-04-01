@@ -1,34 +1,43 @@
 ﻿#include "ConfigMgr.h"
+#include "Logger.h"
 
-ConfigMgr::ConfigMgr() {
+ConfigMgr::ConfigMgr()
+{
     namespace fs = std::filesystem;
 
     // 1. 定位配置文件路径 (exe同级目录)
     fs::path config_path = fs::current_path() / "config.ini";
 
-    if (!fs::exists(config_path)) {
+    if (!fs::exists(config_path))
+    {
         return;
     }
 
     std::ifstream file(config_path);
-    if (!file.is_open()) {
+    if (!file.is_open())
+    {
         return;
     }
 
     // 2. 手动解析 INI (替代 Boost.PropertyTree)
     std::string line, current_section;
-    while (std::getline(file, line)) {
+    while (std::getline(file, line))
+    {
         line = Trim(line);
-        if (line.empty() || line[0] == ';' || line[0] == '#') continue;
+        if (line.empty() || line[0] == ';' || line[0] == '#')
+            continue;
 
-        if (line[0] == '[' && line.back() == ']') {
+        if (line[0] == '[' && line.back() == ']')
+        {
             // 解析 [Section]
             current_section = line.substr(1, line.length() - 2);
         }
-        else {
+        else
+        {
             // 解析 Key=Value
             size_t pos = line.find('=');
-            if (pos != std::string::npos && !current_section.empty()) {
+            if (pos != std::string::npos && !current_section.empty())
+            {
                 std::string key = Trim(line.substr(0, pos));
                 std::string value = Trim(line.substr(pos + 1));
                 _config_map[current_section]._section_datas[key] = std::move(value);
@@ -36,36 +45,43 @@ ConfigMgr::ConfigMgr() {
         }
     }
 
-    for (const auto& [name, info] : _config_map) {
-        for (const auto& [k, v] : info._section_datas) {
-            std::cout << "  " << k << " = " << v << std::endl;
+    for (const auto &[name, info] : _config_map)
+    {
+        for (const auto &[k, v] : info._section_datas)
+        {
+            Logger::Info("ConfigMgr - section: {}, {} = {}", name, k, v);
         }
     }
 
     InitPath();
 }
 
-std::string ConfigMgr::GetValue(const std::string& section, const std::string& key) const {
+std::string ConfigMgr::GetValue(const std::string &section, const std::string &key) const
+{
     auto it = _config_map.find(section);
-    if (it == _config_map.end()) return "";
+    if (it == _config_map.end())
+        return "";
     return it->second.GetValue(key);
 }
 
-std::string ConfigMgr::Trim(std::string s) {
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
-        return !std::isspace(ch);
-        }));
-    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
-        return !std::isspace(ch);
-        }).base(), s.end());
+std::string ConfigMgr::Trim(std::string s)
+{
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch)
+                                    { return !std::isspace(ch); }));
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch)
+                         { return !std::isspace(ch); })
+                .base(),
+            s.end());
     return s;
 }
 
-std::filesystem::path ConfigMgr::GetFileOutPath() const {
+std::filesystem::path ConfigMgr::GetFileOutPath() const
+{
     return _static_path;
 }
 
-void ConfigMgr::InitPath() {
+void ConfigMgr::InitPath()
+{
     namespace fs = std::filesystem;
     fs::path current_path = fs::current_path();
 
@@ -73,20 +89,27 @@ void ConfigMgr::InitPath() {
     std::string staticdir = GetValue("Static", "Path");
 
     // 默认值处理，防止配置缺失
-    if (bindir.empty()) bindir = ".";
-    if (staticdir.empty()) staticdir = "static";
+    if (bindir.empty())
+        bindir = ".";
+    if (staticdir.empty())
+        staticdir = "static";
 
     _bin_path = current_path / bindir;
     _static_path = _bin_path / staticdir;
 
-    try {
-        if (!fs::exists(_static_path)) {
-            if (fs::create_directories(_static_path)) {
+    try
+    {
+        if (!fs::exists(_static_path))
+        {
+            if (fs::create_directories(_static_path))
+            {
             }
         }
-        else {
+        else
+        {
         }
     }
-    catch (const std::exception& e) {
+    catch (const std::exception &e)
+    {
     }
 }

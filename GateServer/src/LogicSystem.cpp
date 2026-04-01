@@ -23,7 +23,7 @@ LogicSystem::LogicSystem()
 	RegPost("/test_procedure", [](std::shared_ptr<HttpConnection> connection)
 			{
 				auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-				std::cout << "receive body is " << body_str << std::endl;
+				// Logger::Info("receive body is {}", body_str);
 				connection->_response.set(http::field::content_type, "text/json");
 				Json::Value root;
 				Json::Reader reader;
@@ -31,7 +31,7 @@ LogicSystem::LogicSystem()
 				bool parse_success = reader.parse(body_str, src_root);
 				if (!parse_success)
 				{
-					std::cout << "Failed to parse JSON data!" << std::endl;
+					Logger::Error("Failed to parse JSON data!");
 					root["error"] = ErrorCodes::Error_Json;
 					std::string jsonstr = root.toStyledString();
 					beast::ostream(connection->_response.body()) << jsonstr;
@@ -40,7 +40,7 @@ LogicSystem::LogicSystem()
 
 				if (!src_root.isMember("email"))
 				{
-					std::cout << "Failed to parse JSON data!" << std::endl;
+					Logger::Error("Failed to parse JSON data!");
 					root["error"] = ErrorCodes::Error_Json;
 					std::string jsonstr = root.toStyledString();
 					beast::ostream(connection->_response.body()) << jsonstr;
@@ -48,10 +48,10 @@ LogicSystem::LogicSystem()
 				}
 
 				auto email = src_root["email"].asString();
-				int uid = 0;
+				UserIdType uid = 0;
 				std::string name = "";
 				MysqlMgr::GetInstance()->TestProcedure(email, uid, name);
-				std::cout << "email is " << email << std::endl;
+				// Logger::Info("email is {}", email);
 				root["error"] = ErrorCodes::Success;
 				root["email"] = src_root["email"];
 				root["name"] = name;
@@ -145,7 +145,7 @@ LogicSystem::LogicSystem()
 		}
 
 		//查找数据库判断用户是否存在
-		int uid = MysqlMgr::GetInstance()->RegUser(name, email, pwd, icon);
+		UserIdType uid = MysqlMgr::GetInstance()->RegUser(name, email, pwd, icon);
 		if (uid == 0 || uid == -1) {
 			Logger::Error("user exist");
 			root["error"] = ErrorCodes::UserExist;
@@ -240,7 +240,7 @@ LogicSystem::LogicSystem()
 			{
 			Logger::Info("receive user_login req");
 		auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-		std::cout << "receive body is " << body_str << std::endl;
+		// std::cout << "receive body is " << body_str << std::endl;
 		connection->_response.set(http::field::content_type, "text/json");
 		Json::Value root;
 		Json::Reader reader;

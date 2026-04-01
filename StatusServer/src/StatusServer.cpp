@@ -33,7 +33,7 @@ void RunServer()
     builder.RegisterService(&service);
     // 构建并启动gRPC服务器
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "Server listening on " << server_address << std::endl;
+    Logger::Info("Server listening on {}", server_address);
     // 创建Boost.Asio的io_context
     boost::asio::io_context io_context;
     // 创建signal_set用于捕获SIGINT
@@ -42,7 +42,7 @@ void RunServer()
     signals.async_wait([&server](const boost::system::error_code &error, int signal_number)
                        {
         if (!error) {
-            std::cout << "Shutting down server..." << std::endl;
+            Logger::Info("Shutting down server...");
             server->Shutdown(); // 优雅地关闭服务器
         } });
     // 在单独的线程中运行io_context

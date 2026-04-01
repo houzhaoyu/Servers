@@ -172,7 +172,7 @@ Status ChatServiceImpl::NotifyChatImgMsg(::grpc::ServerContext *context, const :
 	return Status::OK;
 }
 
-bool ChatServiceImpl::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<UserInfo> &userinfo)
+bool ChatServiceImpl::GetBaseInfo(std::string base_key, UserIdType uid, std::shared_ptr<UserInfo> &userinfo)
 {
 	// 优先查redis中查询用户信息
 	std::string info_str = "";

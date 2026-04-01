@@ -66,7 +66,7 @@ AddFriendRsp ChatGrpcClient::NotifyAddFriend(std::string server_name, const AddF
 	return rsp;
 }
 
-bool ChatGrpcClient::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<UserInfo> &userinfo)
+bool ChatGrpcClient::GetBaseInfo(std::string base_key, UserIdType uid, std::shared_ptr<UserInfo> &userinfo)
 {
 	// 优先查redis中查询用户信息
 	std::string info_str = "";

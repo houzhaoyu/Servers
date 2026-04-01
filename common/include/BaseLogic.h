@@ -21,7 +21,7 @@ public:
 
 protected:
     virtual void RegisterHandlers() = 0;
-    std::map<short, LogicHandler> _handlers;
+    std::map<MsgIdType, LogicHandler> _handlers;
 
 private:
     // 内部工作单元

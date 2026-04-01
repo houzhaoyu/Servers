@@ -1,16 +1,17 @@
 ﻿#include "ChatSession.h"
 #include <iostream>
+#include "Logger.h"
 
 // =========================
 // 协议解析
 // =========================
-bool ChatSession::ParseHeader(const char* data, int& msg_id, int& msg_len)
+bool ChatSession::ParseHeader(const char* data, MsgIdType& msg_id, int& msg_len)
 {
     memcpy(&msg_id, data, HEAD_ID_LEN);
     msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);
 
     if (msg_id > CHAT_MAX_LENGTH) {
-        std::cout << "invalid msg_id: " << msg_id << std::endl;
+        Logger::Debug("ChatSession::ParseHeader - Error - invalid msg_id: {}", msg_id);
         return false;
     }
 
@@ -18,7 +19,7 @@ bool ChatSession::ParseHeader(const char* data, int& msg_id, int& msg_len)
     msg_len = boost::asio::detail::socket_ops::network_to_host_short(msg_len);
 
     if (msg_len > CHAT_MAX_LENGTH) {
-        std::cout << "invalid msg_len: " << msg_len << std::endl;
+        Logger::Debug("ChatSession::ParseHeader - Error - invalid msg_len: {}", msg_len);
         return false;
     }
 
@@ -52,7 +53,7 @@ bool ChatSession::IsHeartbeatExpired(std::time_t now)
 {
     double diff = std::difftime(now, _last_heartbeat);
     if (diff > HEART_THRESHOLD) {
-        std::cout << "heartbeat expired: " << GetSessionId() << std::endl;
+        Logger::Debug("ChatSession::IsHeartbeatExpired - heartbeat expired: {}", GetSessionId());
         return true;
     }
     return false;
@@ -63,7 +64,7 @@ void ChatSession::UpdateHeartbeat()
     _last_heartbeat = std::time(nullptr);
 }
 
-void ChatSession::NotifyOffline(int uid) {
+void ChatSession::NotifyOffline(UserIdType uid) {
 
     Json::Value  rtvalue;
     rtvalue["error"] = ErrorCodes::Success;
@@ -121,6 +122,7 @@ void ChatSession::DealExceptionSession()
     bool ok = RedisMgr::GetInstance()->Get(USER_SESSION_PREFIX + uid_str, redis_session_id);
     if (!ok) return;
 
+    //首先判断当前redis中存储的sessionid是否是自己的id，不是就不删
     if (redis_session_id != GetSessionId()) {
         // 被踢下线 or 异地登录
         return;

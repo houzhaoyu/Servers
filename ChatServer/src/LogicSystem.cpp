@@ -20,7 +20,7 @@ void LogicSystem::SetServer(std::shared_ptr<CServer> pserver)
 void LogicSystem::RegisterHandlers()
 {
 	_handlers[ID_CHAT_LOGIN] =
-		[this](std::shared_ptr<BaseSession> session, short msg_id, const std::string &msg_data)
+		[this](std::shared_ptr<BaseSession> session, MsgIdType msg_id, const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<ChatSession>(session);
 		if (!s)
@@ -34,7 +34,7 @@ void LogicSystem::RegisterHandlers()
 	};
 
 	_handlers[ID_SEARCH_USER_REQ] =
-		[this](std::shared_ptr<BaseSession> session, short msg_id, const std::string &msg_data)
+		[this](std::shared_ptr<BaseSession> session, MsgIdType msg_id, const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<ChatSession>(session);
 		if (!s)
@@ -49,7 +49,7 @@ void LogicSystem::RegisterHandlers()
 	};
 
 	_handlers[ID_ADD_FRIEND_REQ] =
-		[this](std::shared_ptr<BaseSession> session, short msg_id, const std::string &msg_data)
+		[this](std::shared_ptr<BaseSession> session, MsgIdType msg_id, const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<ChatSession>(session);
 		if (!s)
@@ -64,7 +64,7 @@ void LogicSystem::RegisterHandlers()
 	};
 
 	_handlers[ID_AUTH_FRIEND_REQ] =
-		[this](std::shared_ptr<BaseSession> session, short msg_id, const std::string &msg_data)
+		[this](std::shared_ptr<BaseSession> session, MsgIdType msg_id, const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<ChatSession>(session);
 		if (!s)
@@ -78,7 +78,7 @@ void LogicSystem::RegisterHandlers()
 	};
 
 	_handlers[ID_TEXT_CHAT_MSG_REQ] =
-		[this](std::shared_ptr<BaseSession> session, short msg_id, const std::string &msg_data)
+		[this](std::shared_ptr<BaseSession> session, MsgIdType msg_id, const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<ChatSession>(session);
 		if (!s)
@@ -92,7 +92,7 @@ void LogicSystem::RegisterHandlers()
 	};
 
 	_handlers[ID_HEART_BEAT_REQ] =
-		[this](std::shared_ptr<BaseSession> session, short msg_id, const std::string &msg_data)
+		[this](std::shared_ptr<BaseSession> session, MsgIdType msg_id, const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<ChatSession>(session);
 		if (!s)
@@ -106,7 +106,7 @@ void LogicSystem::RegisterHandlers()
 	};
 
 	_handlers[ID_LOAD_CHAT_THREAD_REQ] =
-		[this](std::shared_ptr<BaseSession> session, short msg_id, const std::string &msg_data)
+		[this](std::shared_ptr<BaseSession> session, MsgIdType msg_id, const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<ChatSession>(session);
 		if (!s)
@@ -120,7 +120,7 @@ void LogicSystem::RegisterHandlers()
 	};
 
 	_handlers[ID_CREATE_PRIVATE_CHAT_REQ] =
-		[this](std::shared_ptr<BaseSession> session, short msg_id, const std::string &msg_data)
+		[this](std::shared_ptr<BaseSession> session, MsgIdType msg_id, const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<ChatSession>(session);
 		if (!s)
@@ -134,7 +134,7 @@ void LogicSystem::RegisterHandlers()
 	};
 
 	_handlers[ID_LOAD_CHAT_MSG_REQ] =
-		[this](std::shared_ptr<BaseSession> session, short msg_id, const std::string &msg_data)
+		[this](std::shared_ptr<BaseSession> session, MsgIdType msg_id, const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<ChatSession>(session);
 		if (!s)
@@ -148,7 +148,7 @@ void LogicSystem::RegisterHandlers()
 	};
 
 	_handlers[ID_IMG_CHAT_MSG_REQ] =
-		[this](std::shared_ptr<BaseSession> session, short msg_id, const std::string &msg_data)
+		[this](std::shared_ptr<BaseSession> session, MsgIdType msg_id, const std::string &msg_data)
 	{
 		auto s = std::dynamic_pointer_cast<ChatSession>(session);
 		if (!s)
@@ -162,7 +162,7 @@ void LogicSystem::RegisterHandlers()
 	};
 }
 
-void LogicSystem::LoginHandler(std::shared_ptr<ChatSession> session, const short &msg_id, const std::string &msg_data)
+void LogicSystem::LoginHandler(std::shared_ptr<ChatSession> session, const MsgIdType &msg_id, const std::string &msg_data)
 {
 	Json::Reader reader;
 	Json::Value root;
@@ -307,7 +307,7 @@ void LogicSystem::LoginHandler(std::shared_ptr<ChatSession> session, const short
 	return;
 }
 
-void LogicSystem::SearchInfo(std::shared_ptr<ChatSession> session, const short &msg_id, const std::string &msg_data)
+void LogicSystem::SearchInfo(std::shared_ptr<ChatSession> session, const MsgIdType &msg_id, const std::string &msg_data)
 {
 	Json::Reader reader;
 	Json::Value root;
@@ -334,7 +334,7 @@ void LogicSystem::SearchInfo(std::shared_ptr<ChatSession> session, const short &
 	return;
 }
 
-void LogicSystem::AddFriendApply(std::shared_ptr<ChatSession> session, const short &msg_id, const std::string &msg_data)
+void LogicSystem::AddFriendApply(std::shared_ptr<ChatSession> session, const MsgIdType &msg_id, const std::string &msg_data)
 {
 	Json::Reader reader;
 	Json::Value root;
@@ -417,7 +417,7 @@ void LogicSystem::AddFriendApply(std::shared_ptr<ChatSession> session, const sho
 	ChatGrpcClient::GetInstance()->NotifyAddFriend(to_ip_value, add_req);
 }
 
-void LogicSystem::AuthFriendApply(std::shared_ptr<ChatSession> session, const short &msg_id, const std::string &msg_data)
+void LogicSystem::AuthFriendApply(std::shared_ptr<ChatSession> session, const MsgIdType &msg_id, const std::string &msg_data)
 {
 
 	Json::Reader reader;
@@ -543,7 +543,7 @@ void LogicSystem::AuthFriendApply(std::shared_ptr<ChatSession> session, const sh
 	ChatGrpcClient::GetInstance()->NotifyAuthFriend(to_ip_value, auth_req);
 }
 
-void LogicSystem::DealChatTextMsg(std::shared_ptr<ChatSession> session, const short &msg_id, const std::string &msg_data)
+void LogicSystem::DealChatTextMsg(std::shared_ptr<ChatSession> session, const MsgIdType &msg_id, const std::string &msg_data)
 {
 	Json::Reader reader;
 	Json::Value root;
@@ -568,8 +568,6 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<ChatSession> session, const sh
 	{
 		auto content = txt_obj["content"].asString();
 		auto unique_id = txt_obj["unique_id"].asString();
-		std::cout << "content is " << content << std::endl;
-		std::cout << "unique_id is " << unique_id << std::endl;
 		auto chat_msg = std::make_shared<ChatMessage>();
 		chat_msg->chat_time = timestamp;
 		chat_msg->sender_id = uid;
@@ -644,7 +642,7 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<ChatSession> session, const sh
 }
 
 void LogicSystem::DealChatImgMsg(std::shared_ptr<ChatSession> session,
-								 const short &msg_id, const std::string &msg_data)
+								 const MsgIdType &msg_id, const std::string &msg_data)
 {
 	Json::Reader reader;
 	Json::Value root;
@@ -695,7 +693,7 @@ void LogicSystem::DealChatImgMsg(std::shared_ptr<ChatSession> session,
 		session->Send(return_str, ID_IMG_CHAT_MSG_RSP); });
 }
 
-void LogicSystem::HeartBeatHandler(std::shared_ptr<ChatSession> session, const short &msg_id, const std::string &msg_data)
+void LogicSystem::HeartBeatHandler(std::shared_ptr<ChatSession> session, const MsgIdType &msg_id, const std::string &msg_data)
 {
 	Json::Reader reader;
 	Json::Value root;
@@ -742,8 +740,6 @@ void LogicSystem::GetUserByUid(std::string uid_str, Json::Value &rtvalue)
 		auto desc = root["desc"].asString();
 		auto sex = root["sex"].asInt();
 		auto icon = root["icon"].asString();
-		std::cout << "user  uid is  " << uid << " name  is "
-				  << name << " pwd is " << pwd << " email is " << email << " icon is " << icon << std::endl;
 
 		rtvalue["uid"] = uid;
 		rtvalue["pwd"] = pwd;
@@ -814,8 +810,6 @@ void LogicSystem::GetUserByName(std::string name, Json::Value &rtvalue)
 		auto desc = root["desc"].asString();
 		auto sex = root["sex"].asInt();
 		auto icon = root["icon"].asString();
-		std::cout << "user  uid is  " << uid << " name  is "
-				  << name << " pwd is " << pwd << " email is " << email << std::endl;
 
 		rtvalue["uid"] = uid;
 		rtvalue["pwd"] = pwd;
@@ -862,7 +856,7 @@ void LogicSystem::GetUserByName(std::string name, Json::Value &rtvalue)
 	rtvalue["icon"] = user_info->icon;
 }
 
-bool LogicSystem::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<UserInfo> &userinfo)
+bool LogicSystem::GetBaseInfo(std::string base_key, UserIdType uid, std::shared_ptr<UserInfo> &userinfo)
 {
 	Logger::Debug("LogicSystem::GetBaseInfo - GetBaseInfo uid is {}", uid);
 	// 优先查redis中查询用户信息
@@ -912,7 +906,7 @@ bool LogicSystem::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<Use
 	return true;
 }
 
-bool LogicSystem::GetFriendApplyInfo(int to_uid, std::vector<std::shared_ptr<ApplyInfo>> &list)
+bool LogicSystem::GetFriendApplyInfo(UserIdType to_uid, std::vector<std::shared_ptr<ApplyInfo>> &list)
 {
 	Logger::Debug("LogicSystem::GetFriendApplyInfo - GetFriendApplyInfo to_uid is {}", to_uid);
 	// 从mysql获取好友申请列表
@@ -927,7 +921,7 @@ bool LogicSystem::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInf
 }
 
 void LogicSystem::GetUserThreadsHandler(std::shared_ptr<ChatSession> session,
-										const short &msg_id, const std::string &msg_data)
+										const MsgIdType &msg_id, const std::string &msg_data)
 {
 	Logger::Debug("LogicSystem::GetUserThreadsHandler - GetUserThreadsHandler msg_id is {}", msg_id);
 
@@ -972,8 +966,8 @@ void LogicSystem::GetUserThreadsHandler(std::shared_ptr<ChatSession> session,
 	}
 }
 
-bool LogicSystem::GetUserThreads(int64_t userId,
-								 int64_t lastId,
+bool LogicSystem::GetUserThreads(UserIdType userId,
+									UserIdType lastId,
 								 int pageSize,
 								 std::vector<std::shared_ptr<ChatThreadInfo>> &threads,
 								 bool &loadMore,
@@ -985,7 +979,7 @@ bool LogicSystem::GetUserThreads(int64_t userId,
 												   threads, loadMore, nextLastId);
 }
 
-void LogicSystem::CreatePrivateChat(std::shared_ptr<ChatSession> session, const short &msg_id, const std::string &msg_data)
+void LogicSystem::CreatePrivateChat(std::shared_ptr<ChatSession> session, const MsgIdType &msg_id, const std::string &msg_data)
 {
 	Logger::Debug("LogicSystem::CreatePrivateChat - CreatePrivateChat msg Id is {}", msg_id);
 	Json::Reader reader;
@@ -1016,7 +1010,7 @@ void LogicSystem::CreatePrivateChat(std::shared_ptr<ChatSession> session, const 
 }
 
 void LogicSystem::LoadChatMsg(std::shared_ptr<ChatSession> session,
-							  const short &msg_id, const std::string &msg_data)
+							  const MsgIdType &msg_id, const std::string &msg_data)
 {
 	Logger::Debug("LogicSystem::LoadChatMsg - LoadChatMsg msg Id is {}", msg_id);
 	Json::Reader reader;

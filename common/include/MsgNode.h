@@ -33,25 +33,25 @@ public:
 class RecvNode : public MsgNode
 {
 public:
-	RecvNode(int len, short msg_id)
+	RecvNode(int len, MsgIdType msg_id)
 		: MsgNode(len), _msg_id(msg_id) {
 	}
 
-	short _msg_id;
+	MsgIdType _msg_id;
 };
 
 template<typename Protocol>
 class SendNodeT : public MsgNode
 {
 public:
-	SendNodeT(const char* msg, int len, short msg_id)
+	SendNodeT(const char* msg, int len, MsgIdType msg_id)
 		: MsgNode(len + Protocol::HEAD_LEN), _msg_id(msg_id)
 	{
 		Protocol::Encode(_data, msg_id, len);
 		memcpy(_data + Protocol::HEAD_LEN, msg, len);
 	}
 
-	short _msg_id;
+	MsgIdType _msg_id;
 };
 
 using ChatSendNode = SendNodeT<ChatProtocol>;
@@ -69,7 +69,7 @@ struct LogicTask {
 	}
 };
 
-typedef std::function<void(std::shared_ptr<BaseSession>, const short&, const std::string&)> LogicHandler;
+typedef std::function<void(std::shared_ptr<BaseSession>, const MsgIdType&, const std::string&)> LogicHandler;
 
 using TaskDelivery = std::function<void(std::shared_ptr<LogicTask>, const std::string&)>;
 

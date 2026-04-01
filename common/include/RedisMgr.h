@@ -182,7 +182,7 @@ private:
 				// 2. 先看底层 I/O／协议层有没有错
 				if (context->err)
 				{
-					std::cout << "Connection error: " << context->err << std::endl;
+					Logger::Error("Connection error: {}", context->err);
 					if (reply)
 					{
 						freeReplyObject(reply);
@@ -195,7 +195,7 @@ private:
 				// 3. 再看 Redis 自身返回的是不是 ERROR
 				if (!reply || reply->type == REDIS_REPLY_ERROR)
 				{
-					std::cout << "reply is null, redis ping failed: " << std::endl;
+					Logger::Error("reply is null, redis ping failed");
 					if (reply)
 					{
 						freeReplyObject(reply);
@@ -205,7 +205,7 @@ private:
 					continue;
 				}
 				// 4. 如果都没问题，则还回去
-				// std::cout << "connection alive" << std::endl;
+				// Logger::Info("connection alive");
 				freeReplyObject(reply);
 				returnConnection(context);
 			}
@@ -254,7 +254,7 @@ private:
 				auto reply = (redisReply *)redisCommand(context, "PING");
 				if (!reply)
 				{
-					std::cout << "reply is null, redis ping failed: " << std::endl;
+					Logger::Error("reply is null, redis ping failed");
 					connections_.push(context);
 					continue;
 				}

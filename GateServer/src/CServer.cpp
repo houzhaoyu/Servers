@@ -2,7 +2,7 @@
 #include "HttpConnection.h"
 #include "Logger.h"
 
-CServer::CServer(boost::asio::io_context &ioc, unsigned short &port) : _ioc(ioc),
+CServer::CServer(boost::asio::io_context &ioc, PortType &port) : _ioc(ioc),
 																	   _acceptor(_ioc, tcp::endpoint(tcp::v4(), port)), _socket(ioc)
 {
 }
