@@ -9,7 +9,6 @@
 #include <queue>
 #include <atomic>
 
-
 #include <boost/beast/http.hpp>
 #include <boost/beast.hpp>
 #include <boost/asio.hpp>
@@ -153,7 +152,7 @@ enum MsgStatus {
 //头部数据长度
 #define CHAT_HEAD_DATA_LEN 2
 
-#define CHAT_MAX_LENGTH  1024*2
+#define CHAT_MAX_LENGTH  (1024*2)
 
 #define CHAT_MAX_RECVQUE  10000
 #define CHAT_MAX_SENDQUE 1000
@@ -164,7 +163,7 @@ enum MsgStatus {
 //头部数据长度
 #define FILE_HEAD_DATA_LEN 4
 
-#define FILE_MAX_LENGTH 1024 * 50
+#define FILE_MAX_LENGTH (1024 * 50)
 
 #define FILE_MAX_RECVQUE 2000000
 #define FILE_MAX_SENDQUE 2000000
