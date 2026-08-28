@@ -9,9 +9,9 @@ set(PROTO_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/proto")
 set(PROTO_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY ${PROTO_OUT_DIR})
 
-# 3. 编译器路径（确保这些变量在根目录 CMake 中已定义）
-set(PROTOC_EXE "${GRPC_ROOT}/visualpro/third_party/protobuf/Debug/protoc.exe")
-set(GRPC_CPP_PLUGIN "${GRPC_ROOT}/visualpro/Debug/grpc_cpp_plugin.exe")
+# 3. protoc / grpc_cpp_plugin 路径
+#    由根目录 CMakeLists.txt 按平台统一设置（Windows 用 GRPC_ROOT 下 .exe，Linux 用 PATH 中的命令）
+#    这里直接使用即可，无需重复定义
 
 # 4. 生成代码定义
 set(PROTO_GEN_FILES 
