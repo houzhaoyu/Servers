@@ -6,11 +6,11 @@
     "mysql": {
         "host": "127.0.0.1",
         "port": "3306",
-        "passwd": 123456
+        "passwd": 111111
     },
     "redis": {
         "host": "127.0.0.1",
-        "port": 6380,
-        "passwd": 123456
+        "port": 6379,
+        "passwd": 111111
     }
 }

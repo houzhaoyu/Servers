@@ -58,7 +58,9 @@ int main(int argc, char* argv[])
         auto handler = std::bind(&LogicSystem::PostTask, LogicSystem::GetInstance().get(), std::placeholders::_1, std::placeholders::_2);
         auto pointer_server = std::make_shared<CServer>(io_context, atoi(port_str.c_str()), handler);
         //定义一个GrpcServer
-        std::string server_address(cfg[serverName]["Host"] + ":" + cfg[serverName]["RPCPort"]);
+        // 监听地址固定用 0.0.0.0：公网 IP 是云厂商 NAT 映射、不在本机网卡上，bind 会失败。
+        // config 中的 Host 仅用于对外通告（客户端连接地址），不用于监听。
+        std::string server_address("0.0.0.0:" + cfg[serverName]["RPCPort"]);
         ChatServiceImpl service;
         grpc::ServerBuilder builder;
         // 监听端口和添加服务
