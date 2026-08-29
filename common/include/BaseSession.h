@@ -76,7 +76,7 @@ public:
 
     std::shared_ptr<ProtocolSession> SharedSelf()
     {
-        return shared_from_this();
+        return this->shared_from_this();
     }
 
     void Start()
@@ -142,7 +142,7 @@ protected:
                 // shared_from_this()返回的类型是std::shared_ptr<ProtocolSession<ChatProtocol>>
                 // 构造LogicTask时隐式转换为shared_ptr<BaseSession>
                 // 实际指向的是ChatSession类型
-                std::make_shared<LogicTask>(shared_from_this(), _recv_msg_node),
+                std::make_shared<LogicTask>(this->shared_from_this(), _recv_msg_node),
                 _session_id);
         }
     }
@@ -171,7 +171,7 @@ protected:
     // =========================
     void AsyncReadHead(int total_len)
     {
-        auto self = shared_from_this();
+        auto self = this->shared_from_this();
 
         asyncReadFull(total_len,
                       [this, self](const boost::system::error_code &ec, std::size_t bytes)
@@ -203,7 +203,7 @@ protected:
 
     void AsyncReadBody(int total_len)
     {
-        auto self = shared_from_this();
+        auto self = this->shared_from_this();
 
         asyncReadFull(total_len,
                       [this, self, total_len](const boost::system::error_code &ec, std::size_t bytes)
@@ -226,7 +226,7 @@ protected:
     // =========================
     void DoWrite()
     {
-        auto self = shared_from_this();
+        auto self = this->shared_from_this();
         auto &node = _send_que.front();
 
         boost::asio::async_write(
@@ -289,7 +289,7 @@ protected:
                       std::size_t total_len,
                       std::function<void(const boost::system::error_code &, std::size_t)> handler)
     {
-        auto self = shared_from_this();
+        auto self = this->shared_from_this();
 
         _socket.async_read_some(
             boost::asio::buffer(_data + read_len, total_len - read_len),

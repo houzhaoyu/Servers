@@ -222,21 +222,25 @@ if(WIN32)
         ws2_32.lib
     )
 else()
-    # ---------------- Linux / Unix：系统动态库名（无 .lib/.so 后缀） ----------------
-    # 使用 apt 安装的 gRPC/Boost/MySQL 时通常只需以下主要库；
-    # 若链接报 undefined reference to absl::xxx，请把对应 absl_xxx 补进列表。
+    # ---------------- Linux / Unix ----------------
+    # 用 pkg-config 自动解析 gRPC/Protobuf 及其 absl 依赖库
+    # （apt 的 libgrpc++-dev 自带 grpc++.pc / grpc.pc / protobuf.pc，
+    #   会自动展开 absl_synchronization 等所有依赖库，避免手动补库）
+    find_package(PkgConfig REQUIRED)
+    execute_process(
+        COMMAND ${PKG_CONFIG_EXECUTABLE} --libs grpc++ grpc protobuf
+        OUTPUT_VARIABLE GRPC_PKG_LINK
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(NOT GRPC_PKG_LINK)
+        message(FATAL_ERROR "pkg-config 未找到 grpc++/grpc/protobuf，请先安装 libgrpc++-dev libprotobuf-dev")
+    endif()
+    # 将 pkg-config 输出拆分为独立链接参数（如 -lgrpc++、-labsl_synchronization 等）
+    separate_arguments(GRPC_PKG_LINK_LIST UNIX_COMMAND "${GRPC_PKG_LINK}")
+
+    # 手动补充非 pkg-config 管理的库
     set(GLOBAL_LINK_LIBS
-        protobuf
-        grpc
-        grpc++
-        grpc++_reflection
-        gpr
-        upb
-        re2
-        cares
-        ssl
-        crypto
-        z
+        ${GRPC_PKG_LINK_LIST}
         hiredis
         mysqlcppconn
         boost_filesystem
