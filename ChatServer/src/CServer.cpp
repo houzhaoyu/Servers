@@ -7,7 +7,9 @@
 #include "ConfigMgr.h"
 #include "Logger.h"
 
-CServer::CServer(boost::asio::io_context &io_context, unsigned int port, TaskDelivery task_delivery) : _io_context(io_context),
+CServer::CServer(boost::asio::io_context &io_context,
+	 unsigned int port,
+	  TaskDelivery task_delivery) : _io_context(io_context),
 																									   _port(port),
 																									   _acceptor(io_context, tcp::endpoint(tcp::v4(), port)),
 																									   _timer(_io_context, std::chrono::seconds(HEARTBEAT_INTERVAL)),
@@ -16,6 +18,9 @@ CServer::CServer(boost::asio::io_context &io_context, unsigned int port, TaskDel
 	Logger::Info("Server start success, listen on port {} ", std::to_string(_port));
 
 	StartAccept();
+
+	// 启动心跳定时器，用于周期刷新连接数并续租服务注册信息
+	StartTimer();
 }
 
 CServer::~CServer()
@@ -129,6 +134,9 @@ void CServer::on_timer(const boost::system::error_code &ec)
 	auto count_str = std::to_string(session_count);
 	RedisMgr::GetInstance()->HSet(LOGIN_COUNT, self_name, count_str);
 
+	// 上报心跳，续租服务注册信息（供 StatusServer 做健康检查与失活剔除）
+	RedisMgr::GetInstance()->Heartbeat(self_name);
+
 	// 处理过期session, 单独提出，防止死锁
 	for (auto &session : _expired_sessions)
 	{
@@ -143,10 +151,10 @@ void CServer::on_timer(const boost::system::error_code &ec)
 
 void CServer::StartTimer()
 {
-	// 启动定时器
-	auto self(shared_from_this());
-	_timer.async_wait([self](boost::system::error_code ec)
-					  { self->on_timer(ec); });
+	// 启动定时器（用 this 捕获，与 on_timer 内部递归保持一致；
+	// 不能使用 shared_from_this，因为构造函数中调用时 shared_ptr 尚未接管对象）
+	_timer.async_wait([this](boost::system::error_code ec)
+					  { on_timer(ec); });
 }
 
 void CServer::StopTimer()

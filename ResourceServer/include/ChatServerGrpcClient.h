@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "const.h"
 #include "Singleton.h"
 #include "ConfigMgr.h"
@@ -6,6 +6,8 @@
 #include "message.pb.h"
 #include <grpcpp/grpcpp.h>
 #include <queue>
+#include <mutex>
+#include <unordered_map>
 #include <condition_variable>
 using grpc::Channel;
 using grpc::Status;
@@ -88,6 +90,8 @@ public:
 	NotifyChatImgRsp NotifyChatImgMsg(int message_id, std::string chatserver);
 private:
 	ChatServerGrpcClient();
+	ChatServerConPool* GetOrCreatePool(const std::string& name);
 	//sever_ip到连接池的映射,  <chatserver1,std::unique_ptr<ChatServerConPool>>
 	std::unordered_map<std::string, std::unique_ptr<ChatServerConPool>> _hash_pools;
+	std::mutex _hash_pools_mtx;
 };

@@ -43,5 +43,6 @@ int main()
 			pool->Stop();
 		}
 		Logger::Error("Exception: {}", e.what());
+		return -1;
 	}
 }

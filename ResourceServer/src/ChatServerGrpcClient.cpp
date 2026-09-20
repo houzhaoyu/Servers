@@ -1,5 +1,7 @@
 ﻿#include "ChatServerGrpcClient.h"
 #include "MysqlMgr.h"
+#include "RedisMgr.h"
+#include "Logger.h"
 #include <filesystem>
 
 NotifyChatImgRsp  ChatServerGrpcClient::NotifyChatImgMsg(int message_id, std::string chatserver)
@@ -8,10 +10,13 @@ NotifyChatImgRsp  ChatServerGrpcClient::NotifyChatImgMsg(int message_id, std::st
 	NotifyChatImgRsp reply;
 	NotifyChatImgReq request;
 	request.set_message_id(message_id);
-	if (_hash_pools.find(chatserver) == _hash_pools.end()) {
+
+	auto* pool_ = GetOrCreatePool(chatserver);
+	if (pool_ == nullptr) {
 		reply.set_error(ErrorCodes::ServerIpErr);
 		return reply;
 	}
+
 	auto chat_msg = MysqlMgr::GetInstance()->GetChatMsgById(message_id);
 	request.set_file_name(chat_msg->content);
 	request.set_from_uid(chat_msg->sender_id);
@@ -25,10 +30,9 @@ NotifyChatImgRsp  ChatServerGrpcClient::NotifyChatImgMsg(int message_id, std::st
 	boost::uintmax_t file_size = std::filesystem::file_size(file_path);
 	request.set_total_size(file_size);
 
-	auto& pool_ = _hash_pools[chatserver];
 	auto stub = pool_->getConnection();
 	Status status = stub->NotifyChatImgMsg(&context, request, &reply);
-	Defer defer([&stub, &pool_, this]() {
+	Defer defer([&stub, pool_]() {
 		pool_->returnConnection(std::move(stub));
 		});
 	if (status.ok()) {
@@ -42,12 +46,49 @@ NotifyChatImgRsp  ChatServerGrpcClient::NotifyChatImgMsg(int message_id, std::st
 
 ChatServerGrpcClient::ChatServerGrpcClient()
 {
-	auto& gCfgMgr = ConfigMgr::Inst();
-	std::string host1 = gCfgMgr["chatserver1"]["Host"];
-	std::string port1 = gCfgMgr["chatserver1"]["RPCPort"];
-	_hash_pools["chatserver1"] = std::make_unique<ChatServerConPool>(5, host1, port1);
+	// 从 Redis 注册中心动态发现所有活跃的 ChatServer（替代硬编码 chatserver1/2）
+	auto active_names = RedisMgr::GetInstance()->GetActiveServerNames();
+	for (auto &name : active_names)
+	{
+		std::string host, port, rpcport;
+		if (!RedisMgr::GetInstance()->GetServerInfo(name, host, port, rpcport))
+		{
+			continue;
+		}
 
-	std::string host2 = gCfgMgr["chatserver2"]["Host"];
-	std::string port2 = gCfgMgr["chatserver2"]["RPCPort"];
-	_hash_pools["chatserver2"] = std::make_unique<ChatServerConPool>(5, host2, port2);
+		_hash_pools[name] = std::make_unique<ChatServerConPool>(5, host, rpcport);
+	}
+
+	Logger::Info("ChatServerGrpcClient init success, pool count = {}", _hash_pools.size());
+}
+
+ChatServerConPool *ChatServerGrpcClient::GetOrCreatePool(const std::string &name)
+{
+	{
+		std::lock_guard<std::mutex> lock(_hash_pools_mtx);
+		auto it = _hash_pools.find(name);
+		if (it != _hash_pools.end())
+		{
+			return it->second.get();
+		}
+	}
+
+	// 池不存在，从 Redis 现查目标节点地址（锁外执行，避免阻塞其他调用）
+	std::string host, port, rpcport;
+	if (!RedisMgr::GetInstance()->GetServerInfo(name, host, port, rpcport))
+	{
+		return nullptr;
+	}
+	auto pool = std::make_unique<ChatServerConPool>(5, host, rpcport);
+
+	std::lock_guard<std::mutex> lock(_hash_pools_mtx);
+	auto it = _hash_pools.find(name);
+	if (it != _hash_pools.end())
+	{
+		// 双检：并发下可能已被其他线程建好
+		return it->second.get();
+	}
+	auto raw = pool.get();
+	_hash_pools[name] = std::move(pool);
+	return raw;
 }

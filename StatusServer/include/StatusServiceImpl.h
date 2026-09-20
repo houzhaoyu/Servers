@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <grpcpp/grpcpp.h>
 #include "message.grpc.pb.h"
 #include <mutex>
@@ -47,9 +47,6 @@ public:
 private:
 	void insertToken(int uid, std::string token);
 	ChatServer getChatServer();
-	std::unordered_map<std::string, ChatServer> _servers;
-	std::mutex _server_mtx;
-
 };
 
 

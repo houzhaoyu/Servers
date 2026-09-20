@@ -582,6 +582,195 @@ bool RedisMgr::DelDownLoadInfo(const std::string &name)
 	return Del(redis_key);
 }
 
+void RedisMgr::RegisterServer(const std::string &name, const std::string &host,
+							  const std::string &port, const std::string &rpcport)
+{
+	auto connect = _con_pool->getConnection();
+	if (connect == nullptr)
+	{
+		return;
+	}
+	Defer defer([&connect, this]()
+				{ _con_pool->returnConnection(connect); });
+
+	// 写入注册索引集合
+	//SADD用于像某个集合中添加一个或多个元素
+	//SADD key member [member ...]
+	redisReply *reply = (redisReply *)redisCommand(connect, "SADD %s %s", CHATSERVER_REGISTRY, name.c_str());
+	if (reply)
+	{
+		freeReplyObject(reply);
+	}
+
+	// 写入注册信息 Hash（host/port/rpcport/status）
+	auto key = std::string(SERVER_INFO_PREFIX) + name;
+	reply = (redisReply *)redisCommand(connect, "HSET %s %s %s %s %s %s %s %s %s",
+									   key.c_str(),
+									   "host", host.c_str(),
+									   "port", port.c_str(),
+									   "rpcport", rpcport.c_str(),
+									   "status", "online");
+	if (reply)
+	{
+		freeReplyObject(reply);
+	}
+
+	// 设置租约，后续由心跳续租
+	reply = (redisReply *)redisCommand(connect, "EXPIRE %s %d", key.c_str(), SERVER_INFO_TTL);
+	if (reply)
+	{
+		freeReplyObject(reply);
+	}
+
+	Logger::Info("RedisMgr::RegisterServer, name = {}, host = {}, port = {}", name, host, port);
+}
+
+void RedisMgr::UnregisterServer(const std::string &name)
+{
+	auto connect = _con_pool->getConnection();
+	if (connect == nullptr)
+	{
+		return;
+	}
+	Defer defer([&connect, this]()
+				{ _con_pool->returnConnection(connect); });
+
+	auto key = std::string(SERVER_INFO_PREFIX) + name;
+	redisReply *reply = (redisReply *)redisCommand(connect, "DEL %s", key.c_str());
+	if (reply)
+	{
+		freeReplyObject(reply);
+	}
+
+	reply = (redisReply *)redisCommand(connect, "SREM %s %s", CHATSERVER_REGISTRY, name.c_str());
+	if (reply)
+	{
+		freeReplyObject(reply);
+	}
+
+	Logger::Info("RedisMgr::UnregisterServer, name = {}", name);
+}
+
+void RedisMgr::Heartbeat(const std::string &name)
+{
+	auto connect = _con_pool->getConnection();
+	if (connect == nullptr)
+	{
+		return;
+	}
+	Defer defer([&connect, this]()
+				{ _con_pool->returnConnection(connect); });
+
+	auto key = std::string(SERVER_INFO_PREFIX) + name;
+	redisReply *reply = (redisReply *)redisCommand(connect, "EXPIRE %s %d", key.c_str(), SERVER_INFO_TTL);
+	if (reply == nullptr)
+	{
+		Logger::Debug("RedisMgr::Heartbeat, Failed : [EXPIRE {} {} ]", key, SERVER_INFO_TTL);
+		return;
+	}
+	freeReplyObject(reply);
+	Logger::Debug("RedisMgr::Heartbeat, Succeed : [EXPIRE {} {} ]", key, SERVER_INFO_TTL);
+}
+
+std::vector<std::string> RedisMgr::GetActiveServerNames()
+{
+	std::vector<std::string> result;
+	auto connect = _con_pool->getConnection();
+	if (connect == nullptr)
+	{
+		return result;
+	}
+	Defer defer([&connect, this]()
+				{ _con_pool->returnConnection(connect); });
+
+	// 先取出所有已注册的服务器名（需先拷贝到本地，避免后续命令覆盖读缓冲）
+	std::vector<std::string> all_names;
+	redisReply *reply = (redisReply *)redisCommand(connect, "SMEMBERS %s", CHATSERVER_REGISTRY);
+	if (reply != nullptr && reply->type == REDIS_REPLY_ARRAY)
+	{
+		for (size_t i = 0; i < reply->elements; ++i)
+		{
+			all_names.push_back(reply->element[i]->str);
+		}
+	}
+	if (reply)
+	{
+		freeReplyObject(reply);
+	}
+
+	// 逐个判定存活（key 存在即存活），失效节点懒清理
+	for (auto &name : all_names)
+	{
+		auto key = std::string(SERVER_INFO_PREFIX) + name;
+		redisReply *exists_reply = (redisReply *)redisCommand(connect, "EXISTS %s", key.c_str());
+		bool alive = (exists_reply != nullptr && exists_reply->type == REDIS_REPLY_INTEGER && exists_reply->integer > 0);
+		if (exists_reply)
+		{
+			freeReplyObject(exists_reply);
+		}
+
+		if (alive)
+		{
+			result.push_back(name);
+		}
+		else
+		{
+			redisReply *srem_reply = (redisReply *)redisCommand(connect, "SREM %s %s", CHATSERVER_REGISTRY, name.c_str());
+			if (srem_reply)
+			{
+				freeReplyObject(srem_reply);
+			}
+			Logger::Info("RedisMgr::GetActiveServerNames, remove inactive server: {}", name);
+		}
+	}
+
+	return result;
+}
+
+bool RedisMgr::GetServerInfo(const std::string &name, std::string &host, std::string &port, std::string &rpcport)
+{
+	auto connect = _con_pool->getConnection();
+	if (connect == nullptr)
+	{
+		return false;
+	}
+	Defer defer([&connect, this]()
+				{ _con_pool->returnConnection(connect); });
+
+	auto key = std::string(SERVER_INFO_PREFIX) + name;
+	redisReply *reply = (redisReply *)redisCommand(connect, "HGET %s %s", key.c_str(), "host");
+	if (reply != nullptr && reply->type == REDIS_REPLY_STRING)
+	{
+		host = reply->str;
+	}
+	if (reply)
+	{
+		freeReplyObject(reply);
+	}
+
+	reply = (redisReply *)redisCommand(connect, "HGET %s %s", key.c_str(), "port");
+	if (reply != nullptr && reply->type == REDIS_REPLY_STRING)
+	{
+		port = reply->str;
+	}
+	if (reply)
+	{
+		freeReplyObject(reply);
+	}
+
+	reply = (redisReply *)redisCommand(connect, "HGET %s %s", key.c_str(), "rpcport");
+	if (reply != nullptr && reply->type == REDIS_REPLY_STRING)
+	{
+		rpcport = reply->str;
+	}
+	if (reply)
+	{
+		freeReplyObject(reply);
+	}
+
+	return !host.empty() && !port.empty() && !rpcport.empty();
+}
+
 std::shared_ptr<FileInfo> RedisMgr::GetFileInfo(const std::string &name)
 {
 	auto redis_key = "file_upload_" + name;

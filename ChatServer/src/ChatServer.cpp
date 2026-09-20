@@ -47,7 +47,11 @@ int main(int argc, char* argv[])
         auto pool = AsioIOContextPool::GetInstance();
         //将登录数设置为0
         RedisMgr::GetInstance()->InitCount(serverName);
+        // 服务注册：上报自身 host/port/rpcport，供 StatusServer 动态发现
+        RedisMgr::GetInstance()->RegisterServer(serverName, cfg[serverName]["Host"],
+            cfg[serverName]["Port"], cfg[serverName]["RPCPort"]);
         Defer derfer([serverName]() {
+            RedisMgr::GetInstance()->UnregisterServer(serverName);
             RedisMgr::GetInstance()->HDel(LOGIN_COUNT, serverName);
             RedisMgr::GetInstance()->Close();
             });

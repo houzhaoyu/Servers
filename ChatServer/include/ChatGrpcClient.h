@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "const.h"
 #include "Singleton.h"
 #include "ConfigMgr.h"
@@ -6,6 +6,7 @@
 
 #include <queue>
 #include <atomic>
+#include <mutex>
 #include <unordered_map>
 #include <grpcpp/grpcpp.h> 
 #include "message.grpc.pb.h"
@@ -114,7 +115,9 @@ public:
 	KickUserRsp NotifyKickUser(std::string server_name, const KickUserReq& req);
 private:
 	ChatGrpcClient();
+	ChatConPool* GetOrCreatePool(const std::string& name);
 	std::unordered_map<std::string, std::unique_ptr<ChatConPool>> _pools;
+	std::mutex _pools_mtx;
 };
 
 

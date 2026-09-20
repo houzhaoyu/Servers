@@ -31,79 +31,55 @@ Status StatusServiceImpl::GetChatServer(ServerContext *context, const GetChatSer
 
 StatusServiceImpl::StatusServiceImpl()
 {
-	auto &cfg = ConfigMgr::Inst();
-	auto server_list = cfg["chatservers"]["Name"];
-
-	std::vector<std::string> words;
-
-	std::stringstream ss(server_list);
-	std::string word;
-
-	while (std::getline(ss, word, ','))
-	{
-		words.push_back(word);
-	}
-
-	for (auto &word : words)
-	{
-		if (cfg[word]["Name"].empty())
-		{
-			continue;
-		}
-
-		ChatServer server;
-		server.port = cfg[word]["Port"];
-		server.host = cfg[word]["Host"];
-		server.name = cfg[word]["Name"];
-		_servers[server.name] = server;
-	}
+	// ChatServer 列表改为运行时从 Redis 注册中心动态发现，不再从配置文件静态读取
 }
 
 ChatServer StatusServiceImpl::getChatServer()
 {
 	Logger::Info("GetChatServer called");
-	std::lock_guard<std::mutex> guard(_server_mtx);
-	auto minServer = _servers.begin()->second;
 	auto lock_key = LOCK_COUNT;
 	auto identifier = RedisMgr::GetInstance()->acquireLock(lock_key, LOCK_TIME_OUT, ACQUIRE_TIME_OUT);
 	// 利用defer解锁
 	Defer defer2([this, identifier, lock_key]()
 				 { RedisMgr::GetInstance()->releaseLock(lock_key, identifier); });
 
-	auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, minServer.name);
-	if (count_str.empty())
+	// 从 Redis 注册中心获取活跃服务器列表（已剔除心跳过期的节点）
+	auto active_names = RedisMgr::GetInstance()->GetActiveServerNames();
+	if (active_names.empty())
 	{
-		// 不存在则默认设置为最大
-		minServer.con_count = INT_MAX;
-	}
-	else
-	{
-		minServer.con_count = std::stoi(count_str);
+		Logger::Error("No active chat server available");
+		return ChatServer();
 	}
 
-	// 使用范围基于for循环
-	for (auto &server : _servers)
+	ChatServer minServer;
+	minServer.name = "invalid";
+	minServer.con_count = INT_MAX;
+	for (auto &name : active_names)
 	{
-
-		if (server.second.name == minServer.name)
+		ChatServer server;
+		server.name = name;
+		std::string rpcport;
+		if (!RedisMgr::GetInstance()->GetServerInfo(name, server.host, server.port, rpcport))
 		{
 			continue;
 		}
 
-		auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, server.second.name);
-		if (count_str.empty())
+		server.con_count = INT_MAX;
+		auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, name);
+		if (!count_str.empty())
 		{
-			server.second.con_count = INT_MAX;
-		}
-		else
-		{
-			server.second.con_count = std::stoi(count_str);
+			server.con_count = std::stoi(count_str);
 		}
 
-		if (server.second.con_count < minServer.con_count)
+		if (server.con_count < minServer.con_count)
 		{
-			minServer = server.second;
+			minServer = server;
 		}
+	}
+	if (minServer.con_count == INT_MAX)
+	{
+		Logger::Error("No active chat server available");
+		return ChatServer();
 	}
 
 	Logger::Debug("Selected chat server: {} with connection count: {}", minServer.name, minServer.con_count);

@@ -118,6 +118,13 @@ enum MSG_IDS {
 #define LOCK_COUNT "lockcount"
 #define CODE_PREFIX  "code_"
 
+//服务注册信息前缀（Hash：host/port/rpcport/status，key 带租约 TTL）
+#define SERVER_INFO_PREFIX "serverinfo_"
+//服务注册索引（SET：所有已知 chatserver 名，配合 EXISTS 判断存活）
+#define CHATSERVER_REGISTRY "chatserver_registry"
+//服务心跳租约时长（秒），chatserver 需定时续租，否则 key 过期即视为失活
+#define SERVER_INFO_TTL 90
+
 //分布式锁的持有时间
 #define LOCK_TIME_OUT 10
 //分布式锁的重试时间

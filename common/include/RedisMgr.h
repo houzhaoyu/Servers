@@ -4,6 +4,8 @@
 #include <queue>
 #include <atomic>
 #include <mutex>
+#include <string>
+#include <vector>
 #include "Singleton.h"
 #include <cstring>
 #include "FileInfo.h"
@@ -342,6 +344,14 @@ public:
 	void DecreaseCount(std::string server_name);
 	void InitCount(std::string server_name);
 	void DelCount(std::string server_name);
+
+	//服务注册/发现/健康检查（基于 Redis 过期租约）
+	void RegisterServer(const std::string& name, const std::string& host,
+						const std::string& port, const std::string& rpcport);
+	void UnregisterServer(const std::string& name);
+	void Heartbeat(const std::string& name);
+	std::vector<std::string> GetActiveServerNames();
+	bool GetServerInfo(const std::string& name, std::string& host, std::string& port, std::string& rpcport);
 
 	bool SetFileInfo(const std::string &name, std::shared_ptr<FileInfo>);
 	std::shared_ptr<FileInfo> GetFileInfo(const std::string &name);
