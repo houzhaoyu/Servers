@@ -29,7 +29,7 @@ int main(int argc, char* argv[])
     auto& cfg = ConfigMgr::Inst();
 
     std::string serverName = ParseServerName(argc, argv);
-    // 将 SelfServer 段更新为当前实例配置，作为统一数据源
+    // 记录当前实例名：-S 指定则回写 SelfServer.Name，否则沿用默认 Name
     cfg.SetSelfServer(serverName);
 
     auto self = cfg.GetSelfServer();

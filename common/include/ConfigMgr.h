@@ -41,14 +41,13 @@ public:
     // 获取配置值
     std::string GetValue(const std::string& section, const std::string& key) const;
 
-    // 根据 -S 指定的服务器名更新 SelfServer 段（作为统一数据源）：
-    // 指定且存在该段时用其覆盖 SelfServer；未指定或不存在时回退到 SelfServer 默认 Name 对应段。
+    // 根据 -S 指定的服务器名更新 SelfServer 的 Name（作为入口）：
+    // 指定且存在该段时回写 Name；未指定或不存在时保持 SelfServer 默认 Name 不变。
     void SetSelfServer(const std::string& serverName);
 
-    // 获取当前自身服务器（SelfServer）配置段
-    SectionInfo GetSelfServer() const {
-        return GetSection("SelfServer");
-    }
+    // 获取当前自身服务器的完整配置段：
+    // 通过 SelfServer.Name 定位到对应的 [name] 段返回（含 Host/Port/RPCPort/LogLevel）。
+    SectionInfo GetSelfServer() const;
 
     // 获取 Section
     SectionInfo GetSection(const std::string& section) const {

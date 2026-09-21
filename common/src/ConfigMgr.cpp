@@ -66,19 +66,23 @@ std::string ConfigMgr::GetValue(const std::string &section, const std::string &k
 
 void ConfigMgr::SetSelfServer(const std::string &serverName)
 {
-    // 解析最终生效的实例名：优先 -S 指定值，其次 SelfServer 默认 Name
-    std::string effective = serverName;
-    if (effective.empty() || _config_map.find(effective) == _config_map.end())
-    {
-        effective = GetValue("SelfServer", "Name");
-    }
-
-    auto it = _config_map.find(effective);
-    if (it == _config_map.end())
+    // 仅回写 SelfServer 的 Name，其余字段（Host/Port/RPCPort 等）按需通过 Name 去对应段查询
+    if (serverName.empty() || _config_map.find(serverName) == _config_map.end())
         return;
+    _config_map["SelfServer"]._section_datas["Name"] = serverName;
+}
 
-    // 用该实例配置覆盖 SelfServer 段，作为后续统一数据源
-    _config_map["SelfServer"] = it->second;
+SectionInfo ConfigMgr::GetSelfServer() const
+{
+    // 通过 SelfServer.Name 定位到具体实例段，返回完整配置
+    std::string name = GetValue("SelfServer", "Name");
+    auto it = _config_map.find(name);
+    if (it != _config_map.end())
+        return it->second;
+
+    // 未找到对应实例段时，回退返回 SelfServer 段本身
+    Logger::Error("ConfigMgr::GetSelfServer - not found server name: {}", name);
+    return GetSection("SelfServer");
 }
 
 std::string ConfigMgr::Trim(std::string s)
