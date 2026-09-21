@@ -29,18 +29,18 @@ int main(int argc, char* argv[])
     auto& cfg = ConfigMgr::Inst();
 
     std::string serverName = ParseServerName(argc, argv);
-    std::string port_str;
-    if (serverName.empty() || !cfg.HasSection(serverName))
-    {
-        port_str = cfg["SelfServer"]["Port"];
-        serverName = cfg["SelfServer"]["Name"];
-    }
-    else
-    {
-        port_str = cfg[serverName]["Port"];
-    }
+    // 将 SelfServer 段更新为当前实例配置，作为统一数据源
+    cfg.SetSelfServer(serverName);
+
+    auto self = cfg.GetSelfServer();
+    serverName = self.GetValue("Name");
+    std::string host = self.GetValue("Host");
+    std::string port_str = self.GetValue("Port");
+    std::string rpc_port = self.GetValue("RPCPort");
+    std::string log_level = self.GetValue("LogLevel");
+
     Logger::Init(serverName);
-    Logger::SetLevel(cfg[serverName]["LogLevel"]);
+    Logger::SetLevel(log_level);
     Logger::Info("{} is starting...", serverName);
 
     try {
@@ -48,8 +48,7 @@ int main(int argc, char* argv[])
         //将登录数设置为0
         RedisMgr::GetInstance()->InitCount(serverName);
         // 服务注册：上报自身 host/port/rpcport，供 StatusServer 动态发现
-        RedisMgr::GetInstance()->RegisterServer(serverName, cfg[serverName]["Host"],
-            cfg[serverName]["Port"], cfg[serverName]["RPCPort"]);
+        RedisMgr::GetInstance()->RegisterServer(serverName, host, port_str, rpc_port);
         Defer derfer([serverName]() {
             RedisMgr::GetInstance()->UnregisterServer(serverName);
             RedisMgr::GetInstance()->HDel(LOGIN_COUNT, serverName);
@@ -57,14 +56,13 @@ int main(int argc, char* argv[])
             });
 
         boost::asio::io_context  io_context;
-        auto port_str = cfg[serverName]["Port"];
         //创建Cserver智能指针
         auto handler = std::bind(&LogicSystem::PostTask, LogicSystem::GetInstance().get(), std::placeholders::_1, std::placeholders::_2);
         auto pointer_server = std::make_shared<CServer>(io_context, atoi(port_str.c_str()), handler);
         //定义一个GrpcServer
         // 监听地址固定用 0.0.0.0：公网 IP 是云厂商 NAT 映射、不在本机网卡上，bind 会失败。
         // config 中的 Host 仅用于对外通告（客户端连接地址），不用于监听。
-        std::string server_address("0.0.0.0:" + cfg[serverName]["RPCPort"]);
+        std::string server_address("0.0.0.0:" + rpc_port);
         ChatServiceImpl service;
         grpc::ServerBuilder builder;
         // 监听端口和添加服务

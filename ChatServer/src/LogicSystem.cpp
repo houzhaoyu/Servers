@@ -1,4 +1,4 @@
-﻿#include "LogicSystem.h"
+#include "LogicSystem.h"
 #include "StatusGrpcClient.h"
 #include "MysqlMgr.h"
 #include "const.h"
@@ -249,7 +249,7 @@ void LogicSystem::LoginHandler(std::shared_ptr<ChatSession> session, const MsgId
 		rtvalue["friend_list"].append(obj);
 	}
 
-	auto server_name = ConfigMgr::Inst().GetValue("SelfServer", "Name");
+	auto server_name = ConfigMgr::Inst().GetSelfServer().GetValue("Name");
 	{
 		// 此处添加分布式锁，让该线程独占登录
 		// 拼接用户ip对应的key
@@ -267,8 +267,7 @@ void LogicSystem::LoginHandler(std::shared_ptr<ChatSession> session, const MsgId
 		if (b_ip)
 		{
 			// 获取当前服务器ip信息
-			auto &cfg = ConfigMgr::Inst();
-			auto self_name = cfg["SelfServer"]["Name"];
+			auto self_name = ConfigMgr::Inst().GetSelfServer().GetValue("Name");
 			// 如果之前登录的服务器和当前相同，则直接在本服务器踢掉
 			if (uid_ip_value == self_name)
 			{
@@ -369,8 +368,7 @@ void LogicSystem::AddFriendApply(std::shared_ptr<ChatSession> session, const Msg
 		return;
 	}
 
-	auto &cfg = ConfigMgr::Inst();
-	auto self_name = cfg["SelfServer"]["Name"];
+	auto self_name = ConfigMgr::Inst().GetSelfServer().GetValue("Name");
 
 	std::string base_key = USER_BASE_INFO + std::to_string(uid);
 	auto apply_info = std::make_shared<UserInfo>();
@@ -471,8 +469,7 @@ void LogicSystem::AuthFriendApply(std::shared_ptr<ChatSession> session, const Ms
 		return;
 	}
 
-	auto &cfg = ConfigMgr::Inst();
-	auto self_name = cfg["SelfServer"]["Name"];
+	auto self_name = ConfigMgr::Inst().GetSelfServer().GetValue("Name");
 	// 直接通知对方有认证通过消息
 	if (to_ip_value == self_name)
 	{
@@ -608,8 +605,7 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<ChatSession> session, const Ms
 		return;
 	}
 
-	auto &cfg = ConfigMgr::Inst();
-	auto self_name = cfg["SelfServer"]["Name"];
+	auto self_name = ConfigMgr::Inst().GetSelfServer().GetValue("Name");
 	// 直接通知对方有认证通过消息
 	if (to_ip_value == self_name)
 	{

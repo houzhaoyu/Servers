@@ -9,8 +9,7 @@
 
 ChatGrpcClient::ChatGrpcClient()
 {
-	auto &cfg = ConfigMgr::Inst();
-	auto self_name = cfg["SelfServer"]["Name"];
+	auto self_name = ConfigMgr::Inst().GetSelfServer().GetValue("Name");
 
 	// 从 Redis 注册中心动态发现所有活跃的 ChatServer（替代静态 [PeerServer] 配置）
 	auto active_names = RedisMgr::GetInstance()->GetActiveServerNames();

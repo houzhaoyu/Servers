@@ -64,6 +64,23 @@ std::string ConfigMgr::GetValue(const std::string &section, const std::string &k
     return it->second.GetValue(key);
 }
 
+void ConfigMgr::SetSelfServer(const std::string &serverName)
+{
+    // 解析最终生效的实例名：优先 -S 指定值，其次 SelfServer 默认 Name
+    std::string effective = serverName;
+    if (effective.empty() || _config_map.find(effective) == _config_map.end())
+    {
+        effective = GetValue("SelfServer", "Name");
+    }
+
+    auto it = _config_map.find(effective);
+    if (it == _config_map.end())
+        return;
+
+    // 用该实例配置覆盖 SelfServer 段，作为后续统一数据源
+    _config_map["SelfServer"] = it->second;
+}
+
 std::string ConfigMgr::Trim(std::string s)
 {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch)

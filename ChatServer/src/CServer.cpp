@@ -129,8 +129,7 @@ void CServer::on_timer(const boost::system::error_code &ec)
 	}
 
 	// 设置session数量
-	auto &cfg = ConfigMgr::Inst();
-	auto self_name = cfg["SelfServer"]["Name"];
+	auto self_name = ConfigMgr::Inst().GetSelfServer().GetValue("Name");
 	auto count_str = std::to_string(session_count);
 	RedisMgr::GetInstance()->HSet(LOGIN_COUNT, self_name, count_str);
 
