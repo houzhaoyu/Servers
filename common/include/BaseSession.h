@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <boost/asio.hpp>
 #include <queue>
 #include <mutex>
@@ -59,7 +59,7 @@ public:
           _b_close(false),
           _task_delivery(task_delivery),
           _check_session_valid(check_session_valid_handler),
-          _remove_session(_remove_session)
+          _remove_session(remove_session)
     {
         boost::uuids::uuid uuid = boost::uuids::random_generator()();
         _session_id = boost::uuids::to_string(uuid);
@@ -214,6 +214,9 @@ protected:
                           memcpy(_recv_msg_node->_data, _data, bytes);
                           _recv_msg_node->_cur_len = bytes;
                           _recv_msg_node->_data[bytes] = '\0';
+
+                          // 收到完整消息：先做子类增强逻辑（如刷新心跳），再投递业务处理
+                          OnMessage(_recv_msg_node);
 
                           DeliverMessage();
 
