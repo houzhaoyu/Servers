@@ -711,7 +711,27 @@ void LogicSystem::ImageChatDownReq(std::shared_ptr<FileSession> session, const M
 	auto sender_str = std::to_string(sender);
 	// 转化为字符串
 	auto uid_str = std::to_string(uid);
-	auto file_path_str = (file_path / sender_str / name).string();
+
+	Json::Value rtvalue;
+	// 下载前校验文件名是否有效，避免空文件名导致路径退化为目录
+	if (name.empty())
+	{
+		Logger::Error("image chat down file name is empty, uid = {}, sender = {}", uid, sender);
+		rtvalue["error"] = ErrorCodes::FileNotExists;
+		session->Send(rtvalue.toStyledString(), ID_IMG_CHAT_DOWN_RSP);
+		return;
+	}
+
+	auto download_path = file_path / sender_str / name;
+	if (!std::filesystem::exists(download_path) || std::filesystem::is_directory(download_path))
+	{
+		Logger::Error("image chat down file path invalid: {}", download_path.string());
+		rtvalue["error"] = ErrorCodes::FileNotExists;
+		session->Send(rtvalue.toStyledString(), ID_IMG_CHAT_DOWN_RSP);
+		return;
+	}
+
+	auto file_path_str = download_path.string();
 
 	auto down_load_task = std::make_shared<DownloadTask>(session, uid, name, seq, file_path_str, callback);
 
