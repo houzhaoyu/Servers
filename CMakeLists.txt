@@ -27,8 +27,16 @@ set(THIRDPARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty" CACHE PATH "内置�
 #    Linux  ：从 PATH 中查找系统安装的 protoc / grpc_cpp_plugin
 # ============================================================
 if(WIN32)
-    set(PROTOC_EXE "${GRPC_ROOT}/visualpro/third_party/protobuf/Debug/protoc.exe")
-    set(GRPC_CPP_PLUGIN "${GRPC_ROOT}/visualpro/Debug/grpc_cpp_plugin.exe")
+    # Windows：依赖由 vcpkg 提供，用 CMake 目标解析库与工具路径
+    find_package(Boost CONFIG REQUIRED COMPONENTS filesystem)
+    find_package(hiredis CONFIG REQUIRED)
+    find_package(protobuf CONFIG REQUIRED)
+    find_package(gRPC CONFIG REQUIRED)
+    find_package(mysql-concpp CONFIG REQUIRED COMPONENTS debug)
+
+    # 工具可执行文件：生成器表达式在生成阶段解析为实际路径
+    set(PROTOC_EXE "$<TARGET_FILE:protobuf::protoc>")
+    set(GRPC_CPP_PLUGIN "$<TARGET_FILE:gRPC::grpc_cpp_plugin>")
 else()
     find_program(PROTOC_EXE protoc REQUIRED)
     find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin REQUIRED)
@@ -43,22 +51,16 @@ include_directories(
 )
 
 if(WIN32)
-    # ---------------- Windows：使用手动指定的库路径 ----------------
-    if(NOT BOOST_ROOT)
-        message(FATAL_ERROR "Windows 下请通过 -DBOOST_ROOT=... 指定 Boost 路径")
+    # ---------------- Windows：Boost/gRPC/hiredis 由 vcpkg 管理，MySQL 沿用官方二进制 ----------------
+    if(NOT MYSQL_ROOT)
+        message(FATAL_ERROR "Windows 下请通过 -DMYSQL_ROOT=... 指定 MySQL Connector/C++ 路径")
     endif()
-    if(NOT GRPC_ROOT)
-        message(FATAL_ERROR "Windows 下请通过 -DGRPC_ROOT=... 指定 gRPC 路径")
-    endif()
+    # vcpkg 已安装头文件根目录（由 vcpkg toolchain 注入的变量拼接）
+    set(VCPKG_INC_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include")
     include_directories(
-        ${BOOST_ROOT}/include/boost-1_88
-        ${HIREDIS_ROOT}/deps/hiredis
+        ${VCPKG_INC_DIR}
+        ${VCPKG_INC_DIR}/hiredis   # 代码以 <hiredis.h> 引用，需额外包含 hiredis 子目录
         ${MYSQL_ROOT}/include
-        ${GRPC_ROOT}/include
-        ${GRPC_ROOT}/third_party/re2
-        ${GRPC_ROOT}/third_party/address_sorting/include
-        ${GRPC_ROOT}/third_party/abseil-cpp
-        ${GRPC_ROOT}/third_party/protobuf/src
     )
 else()
     # ---------------- Linux / Unix：系统默认路径（可叠加自定义路径） ----------------
@@ -114,113 +116,38 @@ endif()
 # ============================================================
 if(WIN32)
     # ---------------- Windows ----------------
-    link_directories(
-        ${BOOST_ROOT}/lib
-        ${HIREDIS_ROOT}/lib
-        ${MYSQL_ROOT}/lib64/vs14/debug
-
-        ${GRPC_ROOT}/visualpro/third_party/re2/Debug
-        ${GRPC_ROOT}/visualpro/third_party/abseil-cpp/absl/types/Debug
-        ${GRPC_ROOT}/visualpro/third_party/abseil-cpp/absl/synchronization/Debug
-        ${GRPC_ROOT}/visualpro/third_party/abseil-cpp/absl/status/Debug
-        ${GRPC_ROOT}/visualpro/third_party/abseil-cpp/absl/random/Debug
-        ${GRPC_ROOT}/visualpro/third_party/abseil-cpp/absl/flags/Debug
-        ${GRPC_ROOT}/visualpro/third_party/abseil-cpp/absl/debugging/Debug
-        ${GRPC_ROOT}/visualpro/third_party/abseil-cpp/absl/container/Debug
-        ${GRPC_ROOT}/visualpro/third_party/abseil-cpp/absl/hash/Debug
-        ${GRPC_ROOT}/visualpro/third_party/boringssl-with-bazel/Debug
-        ${GRPC_ROOT}/visualpro/third_party/abseil-cpp/absl/numeric/Debug
-        ${GRPC_ROOT}/visualpro/third_party/abseil-cpp/absl/time/Debug
-        ${GRPC_ROOT}/visualpro/third_party/abseil-cpp/absl/base/Debug
-        ${GRPC_ROOT}/visualpro/third_party/abseil-cpp/absl/strings/Debug
-        ${GRPC_ROOT}/visualpro/third_party/protobuf/Debug
-        ${GRPC_ROOT}/visualpro/third_party/zlib/Debug
-        ${GRPC_ROOT}/visualpro/Debug
-        ${GRPC_ROOT}/visualpro/third_party/cares/cares/lib/Debug
-    )
-
     set(GLOBAL_LINK_LIBS
-        # protobuf & grpc
-        libprotobufd.lib
-        gpr.lib
-        grpc.lib
-        grpc++.lib
-        grpc++_reflection.lib
-        address_sorting.lib
-        cares.lib
-        zlibstaticd.lib
-        upb.lib
-        ssl.lib
-        crypto.lib
-        re2.lib
-        Win32_Interop.lib
+        # 依赖库改用 vcpkg 的 CMake 目标，传递依赖（absl/re2/zlib/openssl 等）自动展开
+        Boost::filesystem
+        hiredis::hiredis
+        protobuf::libprotobuf
+        gRPC::grpc++
+        gRPC::grpc++_reflection
 
-    # abseil
-    absl_bad_any_cast_impl.lib
-    absl_bad_optional_access.lib
-    absl_bad_variant_access.lib
-    absl_base.lib
-    absl_city.lib
-    absl_civil_time.lib
-    absl_cord.lib
-    absl_debugging_internal.lib
-    absl_demangle_internal.lib
-    absl_examine_stack.lib
-    absl_exponential_biased.lib
-    absl_failure_signal_handler.lib
-    absl_flags.lib
-    absl_flags_config.lib
-    absl_flags_internal.lib
-    absl_flags_marshalling.lib
-    absl_flags_parse.lib
-    absl_flags_program_name.lib
-    absl_flags_usage.lib
-    absl_flags_usage_internal.lib
-    absl_graphcycles_internal.lib
-    absl_hash.lib
-    absl_hashtablez_sampler.lib
-    absl_int128.lib
-    absl_leak_check.lib
-    absl_leak_check_disable.lib
-    absl_log_severity.lib
-    absl_malloc_internal.lib
-    absl_periodic_sampler.lib
-    absl_random_distributions.lib
-    absl_random_internal_distribution_test_util.lib
-    absl_random_internal_pool_urbg.lib
-    absl_random_internal_randen.lib
-    absl_random_internal_randen_hwaes.lib
-    absl_random_internal_randen_hwaes_impl.lib
-    absl_random_internal_randen_slow.lib
-    absl_random_internal_seed_material.lib
-    absl_random_seed_gen_exception.lib
-    absl_random_seed_sequences.lib
-    absl_raw_hash_set.lib
-    absl_raw_logging_internal.lib
-    absl_scoped_set_env.lib
-    absl_spinlock_wait.lib
-    absl_stacktrace.lib
-    absl_status.lib
-    absl_strings.lib
-    absl_strings_internal.lib
-    absl_str_format_internal.lib
-    absl_symbolize.lib
-    absl_synchronization.lib
-    absl_throw_delegate.lib
-    absl_time.lib
-    absl_time_zone.lib
-    absl_statusor.lib
-
-        # hiredis
-        hiredis.lib
-
-        # mysql
-        mysqlcppconn.lib
-        mysqlcppconn8.lib
+        # MySQL 传统 JDBC API；自动匹配 Debug/Release 版本
+        mysql::concpp-jdbc
 
         # Win32
         ws2_32.lib
     )
+
+    # 将 Connector 及其动态依赖复制到服务可执行文件目录。
+    function(copy_mysql_runtime target_name)
+        set(_vcpkg_root "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
+        set(_vcpkg_bin "$<IF:$<CONFIG:Debug>,${_vcpkg_root}/debug/bin,${_vcpkg_root}/bin>")
+        set(_zlib_dll "$<IF:$<CONFIG:Debug>,${_vcpkg_root}/debug/bin/zd.dll,${_vcpkg_root}/bin/z.dll>")
+        add_custom_command(TARGET ${target_name} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:mysql::concpp-jdbc>"
+                "${_vcpkg_bin}/libmysql.dll"
+                "${_vcpkg_bin}/libssl-3-x64.dll"
+                "${_vcpkg_bin}/libcrypto-3-x64.dll"
+                "${_vcpkg_bin}/zstd.dll"
+                "${_zlib_dll}"
+                "$<TARGET_FILE_DIR:${target_name}>"
+            VERBATIM
+        )
+    endfunction()
 else()
     # ---------------- Linux / Unix ----------------
     # 用 pkg-config 自动解析 gRPC/Protobuf 及其 absl 依赖库

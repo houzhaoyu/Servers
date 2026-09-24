@@ -3,3 +3,7 @@ out/
 .vscode/
 build/*
 VerifyServer/node_modules/*
+vcpkg_installed/*
+thirdparty/mysql-connector-c++-9.7.0-build*/
+thirdparty/mysql-connector-c++-9.7.0-install/
+thirdparty/mysql-connector-c++-9.7.0-src/

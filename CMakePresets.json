@@ -1,0 +1,18 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "vcpkg-debug",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "D:/tool/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed",
+        "MYSQL_ROOT": "${sourceDir}/thirdparty/mysql-connector-c++-9.7.0-install",
+        "mysql-concpp_DIR": "${sourceDir}/thirdparty/mysql-connector-c++-9.7.0-install"
+      }
+    }
+  ]
+}

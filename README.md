@@ -58,42 +58,86 @@ https://github.com/houzhaoyu/ChatClient.git
 
 ### 第三方库依赖
 
-项目依赖以下库，请确保已正确安装并修改主 CMakeLists.txt 中的路径：
+依赖通过 **vcpkg** 管理（Boost、gRPC/Protobuf、hiredis），MySQL Connector/C++ 使用官方二进制（9.7）：
 
-- Boost (1.88.0 推荐)
+- Boost
 - gRPC & Protobuf
-- MySQL Connector/C++ (8.3.0)
+- MySQL Connector/C++ (9.7)
 - hiredis (C 接口)
 
 ## 4. 构建与编译
 
-项目采用 **Monorepo** 结构，通过根目录的一键构建所有服务。
+项目采用 **Monorepo** 结构，通过根目录的一键构建所有服务。第三方依赖通过 **vcpkg** 管理，构建参数通过 `CMakePresets.json` 配置。
 
-### 步骤 1：修改路径
+### 步骤 1：Windows 环境配置与编译准备
 
-打开根目录 CMakeLists.txt，修改以下变量为你本地的实际安装路径：
+**1.1 安装 vcpkg 与项目依赖**
 
-```cmake
-set(BOOST_ROOT "你的Boost路径")
-set(MYSQL_ROOT "你的MySQL路径")
-set(GRPC_ROOT "你的gRPC路径")
+项目根目录已提供 `vcpkg.json` 清单，声明了 `boost`、`hiredis`、`grpc`（含 `codegen` 特性）。
+
+- 安装 vcpkg（本例为 `D:\tool\vcpkg`）；如走代理，先在 PowerShell 中设置：
+  ```powershell
+  $env:HTTP_PROXY = "http://127.0.0.1:7890"
+  $env:HTTPS_PROXY = "http://127.0.0.1:7890"
+  ```
+- 在项目根目录执行（manifest 模式，产物安装到 `vcpkg_installed/`）：
+  ```
+  D:\tool\vcpkg\vcpkg.exe install --triplet x64-windows
+  ```
+
+**1.2 安装 MySQL Connector/C++（官方二进制 9.x）**
+
+- 从 https://dev.mysql.com/downloads/connector/cpp/ 下载 **9.x 系列** Windows x64 MSI 安装器（注意：不要选默认列出的 26.x，那是 X DevAPI 线，不含 JDBC API）。
+- 安装时选择 **Complete（完整）**，或 **Custom（自定义）** 并勾选 **「JDBC API」的 DLL 组件 + Developer 组件**（否则缺少头文件与 `.lib` 导入库，无法编译链接）。
+- 默认安装到 `C:\Program Files\MySQL\MySQL Connector C++ 9.7`。
+
+**1.3 核对 CMakePresets.json**
+
+确认 `cacheVariables` 与本机安装路径一致：
+
+```json
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "vcpkg-debug",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "D:/tool/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed",
+        "MYSQL_ROOT": "C:/Program Files/MySQL/MySQL Connector C++ 9.7"
+      }
+    }
+  ]
+}
 ```
 
 
 
 ### 步骤 2：编译
 
-**使用 Visual Studio**:
+**使用 Visual Studio 2022**:
 
-1. “打开文件夹”选择 Servers/ 目录。
-2. 等待 CMake 自动配置完成（会自动生成 gRPC 相关的 .pb.h/.cc 文件）。
-3. 点击 **生成 -> 全部生成**。
+1. “打开文件夹”选择 `Servers/` 目录。
+2. 在 CMake 预设中选择 `vcpkg-debug`。
+3. 等待配置完成（自动生成 gRPC 的 `.pb.h/.cc` 文件）。
+4. 点击 **生成 -> 全部生成**。
 
-**使用命令行**:
+**使用命令行（Windows，走 vcpkg preset）**:
+
+```
+cmake --preset vcpkg-debug
+cmake --build build --config Debug
+```
+
+**使用命令行（Linux，手动指定依赖路径）**:
 
 ```
 mkdir build && cd build
-cmake ..
+cmake -DBOOST_ROOT=... -DGRPC_ROOT=... -DMYSQL_ROOT=... ..
 cmake --build . --config Debug
 ```
 

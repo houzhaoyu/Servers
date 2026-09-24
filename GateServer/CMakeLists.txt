@@ -18,7 +18,5 @@ add_custom_command(TARGET GateServer POST_BUILD
 
 # Windows 下复制 MySQL 连接器 DLL 到可执行文件目录（Linux 无需）
 if(WIN32)
-    add_custom_command(TARGET GateServer POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MYSQL_ROOT}/lib64/debug/mysqlcppconn-9-vs14.dll" $<TARGET_FILE_DIR:GateServer>
-    )
+    copy_mysql_runtime(GateServer)
 endif()
