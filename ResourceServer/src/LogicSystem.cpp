@@ -256,8 +256,27 @@ void LogicSystem::DownloadFileReq(std::shared_ptr<FileSession> session, const Ms
 	auto uid_str = std::to_string(uid);
 
 	auto file_path = ConfigMgr::Inst().GetFileOutPath();
-	auto file_path_str = (file_path / uid_str / name).string();
 	Json::Value rtvalue;
+
+	// 下载前校验文件名是否有效，避免空文件名导致路径退化为目录
+	if (name.empty())
+	{
+		Logger::Error("download file name is empty, uid = {}", uid);
+		rtvalue["error"] = ErrorCodes::FileNotExists;
+		session->Send(rtvalue.toStyledString(), ID_DOWN_LOAD_FILE_RSP);
+		return;
+	}
+
+	auto download_path = file_path / uid_str / name;
+	if (!std::filesystem::exists(download_path) || std::filesystem::is_directory(download_path))
+	{
+		Logger::Error("download file path invalid: {}", download_path.string());
+		rtvalue["error"] = ErrorCodes::FileNotExists;
+		session->Send(rtvalue.toStyledString(), ID_DOWN_LOAD_FILE_RSP);
+		return;
+	}
+
+	auto file_path_str = download_path.string();
 	auto callback = [=](const Json::Value &result)
 	{
 		// 在异步任务完成后调用

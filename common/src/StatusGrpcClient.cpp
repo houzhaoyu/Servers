@@ -18,6 +18,8 @@ GetChatServerRsp StatusGrpcClient::GetChatServer(int uid)
     }
     else
     {
+        Logger::Error("GetChatServer rpc failed, grpc code: {}, message: {}",
+            static_cast<int>(status.error_code()), status.error_message());
         reply.set_error(ErrorCodes::RPCFailed);
         return reply;
     }
