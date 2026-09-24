@@ -143,7 +143,7 @@ enum MSG_IDS {
 //4个下载工作者
 #define DOWN_LOAD_WORKER_COUNT	4
 //最大传输文件的大小
-#define MAX_FILE_LEN 2048
+#define MAX_FILE_LEN 32768
 
 enum MsgStatus {
 	UN_READ = 0,  //对方未读
