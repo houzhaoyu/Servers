@@ -14,7 +14,7 @@ protected:
 	void RegisterHandlers() override;
 
 private:
-	LogicSystem() : BaseLogic(1) { RegisterHandlers(); Start(); }
+	LogicSystem();
 
 	// 只需要保留业务相关的函数声明
 	void LoginHandler(std::shared_ptr<ChatSession> session, const MsgIdType& msg_id, const std::string& msg_data);

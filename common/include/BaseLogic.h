@@ -17,6 +17,8 @@ public:
 
     // 统一的投递接口：如果 key 为空则随机/轮询，如果有 key 则哈希
     void PostTask(std::shared_ptr<LogicTask> task, const std::string& key = "");
+    // 将异步 I/O 的完成回调投递回同一业务分片，保持同一 session 的执行顺序。
+    void PostCallback(std::function<void()> callback, const std::string& key = "");
     void Start();
 
 protected:
@@ -27,7 +29,11 @@ private:
     // 内部工作单元
     struct Worker {
         std::thread thread;
-        std::queue<std::shared_ptr<LogicTask>> queue;
+        struct WorkItem {
+            std::shared_ptr<LogicTask> task;
+            std::function<void()> callback;
+        };
+        std::queue<WorkItem> queue;
         std::mutex mtx;
         std::condition_variable cv;
     };

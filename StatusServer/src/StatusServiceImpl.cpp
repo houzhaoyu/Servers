@@ -1,125 +1,113 @@
-﻿#include "StatusServiceImpl.h"
-#include "ConfigMgr.h"
-#include "const.h"
-#include "RedisMgr.h"
-#include <climits>
-#include "Defer.h"
+#include "StatusServiceImpl.h"
 #include "Logger.h"
+#include "RedisMgr.h"
+#include "const.h"
 
-std::string generate_unique_string()
+#include <string>
+
+namespace
 {
-	// 创建UUID对象
-	boost::uuids::uuid uuid = boost::uuids::random_generator()();
-
-	// 将UUID转换为字符串
-	std::string unique_string = to_string(uuid);
-
-	return unique_string;
-}
-
-Status StatusServiceImpl::GetChatServer(ServerContext *context, const GetChatServerReq *request, GetChatServerRsp *reply)
-{
-	std::string prefix("status server has received :  ");
-	const auto &server = getChatServer();
-	reply->set_host(server.host);
-	reply->set_port(server.port);
-	reply->set_error(ErrorCodes::Success);
-	reply->set_token(generate_unique_string());
-	insertToken(request->uid(), reply->token());
-	return Status::OK;
-}
-
-StatusServiceImpl::StatusServiceImpl()
-{
-	// ChatServer 列表改为运行时从 Redis 注册中心动态发现，不再从配置文件静态读取
-}
-
-ChatServer StatusServiceImpl::getChatServer()
-{
-	Logger::Info("GetChatServer called");
-	auto lock_key = LOCK_COUNT;
-	auto identifier = RedisMgr::GetInstance()->acquireLock(lock_key, LOCK_TIME_OUT, ACQUIRE_TIME_OUT);
-	// 利用defer解锁
-	Defer defer2([this, identifier, lock_key]()
-				 { RedisMgr::GetInstance()->releaseLock(lock_key, identifier); });
-
-	// 从 Redis 注册中心获取活跃服务器列表（已剔除心跳过期的节点）
-	auto active_names = RedisMgr::GetInstance()->GetActiveServerNames();
-	if (active_names.empty())
+	std::string GenerateUniqueString()
 	{
-		Logger::Error("No active chat server available");
-		return ChatServer();
+		return boost::uuids::to_string(boost::uuids::random_generator()());
 	}
 
-	ChatServer minServer;
-	minServer.name = "invalid";
-	minServer.con_count = INT_MAX;
-	for (auto &name : active_names)
-	{
-		ChatServer server;
-		server.name = name;
-		std::string rpcport;
-		if (!RedisMgr::GetInstance()->GetServerInfo(name, server.host, server.port, rpcport))
+	// 一次 Redis 往返完成活跃节点过滤、最小连接数选择和同负载轮询。
+	const char *kSelectServerScript = R"lua(
+local names = redis.call('SMEMBERS', KEYS[1])
+local best = {}
+local min_count = nil
+for _, name in ipairs(names) do
+    local info_key = ARGV[1] .. name
+    if redis.call('EXISTS', info_key) == 1 then
+        local count = tonumber(redis.call('HGET', KEYS[2], name) or '0')
+        if min_count == nil or count < min_count then
+            min_count = count
+            best = {name}
+        elseif count == min_count then
+            table.insert(best, name)
+        end
+    end
+end
+if #best == 0 then
+    return {}
+end
+local sequence = redis.call('INCR', ARGV[2])
+local name = best[((sequence - 1) % #best) + 1]
+local info_key = ARGV[1] .. name
+return {name,
+        redis.call('HGET', info_key, 'host') or '',
+        redis.call('HGET', info_key, 'port') or '',
+        tostring(min_count)}
+)lua";
+}
+
+grpc::ServerUnaryReactor *StatusServiceImpl::GetChatServer(
+	grpc::CallbackServerContext *context,
+	const message::GetChatServerReq *request,
+	message::GetChatServerRsp *reply)
+{
+	auto *reactor = context->DefaultReactor();
+	const auto uid = request->uid();
+	RedisMgr::GetInstance()->AsyncCommand(
+		{ "EVAL", kSelectServerScript, "2", CHATSERVER_REGISTRY, LOGIN_COUNT,
+		  SERVER_INFO_PREFIX, "status_server_round_robin" },
+		[reactor, reply, uid](RedisAsyncResult result)
 		{
-			continue;
-		}
+			if (!result.success || result.elements.size() < 3)
+			{
+				Logger::Error("async Redis failed to select chat server: {}", result.error);
+				reply->set_error(ErrorCodes::RPCFailed);
+				reactor->Finish(grpc::Status::OK);
+				return;
+			}
 
-		server.con_count = INT_MAX;
-		auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, name);
-		if (!count_str.empty())
-		{
-			server.con_count = std::stoi(count_str);
-		}
+			reply->set_host(result.elements[1]);
+			reply->set_port(result.elements[2]);
+			reply->set_token(GenerateUniqueString());
+			reply->set_error(ErrorCodes::Success);
 
-		if (server.con_count < minServer.con_count)
-		{
-			minServer = server;
-		}
-	}
-	if (minServer.con_count == INT_MAX)
-	{
-		Logger::Error("No active chat server available");
-		return ChatServer();
-	}
-
-	Logger::Debug("Selected chat server: {} with connection count: {}", minServer.name, minServer.con_count);
-
-	return minServer;
+			const auto token_key = std::string(USER_TOKEN_PREFIX) + std::to_string(uid);
+			RedisMgr::GetInstance()->AsyncSet(token_key, reply->token(),
+				[reactor](RedisAsyncResult set_result)
+				{
+					if (!set_result.success)
+					{
+						Logger::Error("async Redis failed to insert login token: {}", set_result.error);
+					}
+					reactor->Finish(grpc::Status::OK);
+				});
+		});
+	return reactor;
 }
 
-Status StatusServiceImpl::Login(ServerContext *context, const LoginReq *request, LoginRsp *reply)
+grpc::ServerUnaryReactor *StatusServiceImpl::Login(
+	grpc::CallbackServerContext *context,
+	const message::LoginReq *request,
+	message::LoginRsp *reply)
 {
-	Logger::Info("Login called for uid: {}", request->uid());
-
-	auto uid = request->uid();
-	auto token = request->token();
-
-	std::string uid_str = std::to_string(uid);
-	std::string token_key = USER_TOKEN_PREFIX + uid_str;
-	std::string token_value = "";
-	bool success = RedisMgr::GetInstance()->Get(token_key, token_value);
-	if (success)
-	{
-		reply->set_error(ErrorCodes::UidInvalid);
-		return Status::OK;
-	}
-
-	if (token_value != token)
-	{
-		reply->set_error(ErrorCodes::TokenInvalid);
-		return Status::OK;
-	}
-	reply->set_error(ErrorCodes::Success);
-	reply->set_uid(uid);
-	reply->set_token(token);
-	return Status::OK;
-}
-
-void StatusServiceImpl::insertToken(int uid, std::string token)
-{
-	Logger::Info("Inserting token for uid: {}, token: {}", uid, token);
-
-	std::string uid_str = std::to_string(uid);
-	std::string token_key = USER_TOKEN_PREFIX + uid_str;
-	RedisMgr::GetInstance()->Set(token_key, token);
+	auto *reactor = context->DefaultReactor();
+	const auto uid = request->uid();
+	const auto token = request->token();
+	const auto token_key = std::string(USER_TOKEN_PREFIX) + std::to_string(uid);
+	RedisMgr::GetInstance()->AsyncGet(token_key,
+		[reactor, reply, uid, token](RedisAsyncResult result)
+		{
+			if (!result.success)
+			{
+				reply->set_error(ErrorCodes::UidInvalid);
+			}
+			else if (result.value != token)
+			{
+				reply->set_error(ErrorCodes::TokenInvalid);
+			}
+			else
+			{
+				reply->set_error(ErrorCodes::Success);
+				reply->set_uid(uid);
+				reply->set_token(token);
+			}
+			reactor->Finish(grpc::Status::OK);
+		});
+	return reactor;
 }

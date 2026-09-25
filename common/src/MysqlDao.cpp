@@ -1,6 +1,7 @@
 ﻿#include "MysqlDao.h"
 #include "ConfigMgr.h"
 #include "Logger.h"
+#include <algorithm>
 
 MysqlDao::MysqlDao()
 {
@@ -10,7 +11,21 @@ MysqlDao::MysqlDao()
 	const auto &pwd = cfg["Mysql"]["Passwd"];
 	const auto &schema = cfg["Mysql"]["Schema"];
 	const auto &user = cfg["Mysql"]["User"];
-	pool_.reset(new MySqlPool(host + ":" + port, user, pwd, schema, 5));
+	int pool_size = 5;
+	const auto &configured_pool_size = cfg["Mysql"]["ConPoolNum"];
+	if (!configured_pool_size.empty())
+	{
+		try
+		{
+			pool_size = std::clamp(std::stoi(configured_pool_size), 1, 64);
+		}
+		catch (const std::exception &)
+		{
+			Logger::Error("invalid Mysql.ConPoolNum: {}, fallback to {}", configured_pool_size, pool_size);
+		}
+	}
+	pool_.reset(new MySqlPool(host + ":" + port, user, pwd, schema, pool_size));
+	Logger::Info("MysqlDao connection pool initialized, size = {}", pool_size);
 }
 
 MysqlDao::~MysqlDao()

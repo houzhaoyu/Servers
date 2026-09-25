@@ -38,6 +38,30 @@ tcp::socket &HttpConnection::GetSocket()
 	return _socket;
 }
 
+void HttpConnection::DeferResponse()
+{
+	_response_deferred = true;
+}
+
+void HttpConnection::CompleteJsonResponse(std::string body, http::status status)
+{
+	auto self = shared_from_this();
+	net::post(_socket.get_executor(),
+		[self, body = std::move(body), status]() mutable
+		{
+			if (!self->_socket.is_open())
+			{
+				Logger::Debug("HTTP async response skipped because socket is closed");
+				return;
+			}
+			self->_response.result(status);
+			self->_response.set(http::field::server, "GateServer");
+			self->_response.set(http::field::content_type, "text/json");
+			beast::ostream(self->_response.body()) << body;
+			self->WriteResponse();
+		});
+}
+
 void HttpConnection::CheckDeadline()
 {
 	auto self = shared_from_this();
@@ -51,6 +75,10 @@ void HttpConnection::CheckDeadline()
 
 void HttpConnection::WriteResponse()
 {
+	if (_response_started.exchange(true))
+	{
+		return;
+	}
 	auto self = shared_from_this();
 	_response.content_length(_response.body().size());
 	http::async_write(_socket, _response, [self](beast::error_code ec, std::size_t bytes_transferred)
@@ -192,7 +220,10 @@ void HttpConnection::HandleReq()
 		}
 		_response.result(http::status::ok);
 		_response.set(http::field::server, "GateServer");
-		// TODO:处理
+		if (_response_deferred)
+		{
+			return;
+		}
 		WriteResponse();
 		return;
 	}
@@ -210,7 +241,10 @@ void HttpConnection::HandleReq()
 		}
 		_response.result(http::status::ok);
 		_response.set(http::field::server, "GateServer");
-		// TODO:处理
+		if (_response_deferred)
+		{
+			return;
+		}
 		WriteResponse();
 		return;
 	}

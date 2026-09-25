@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <functional>
 #include <map>
+#include <boost/asio/thread_pool.hpp>
 
 #include "const.h"
 #include "Singleton.h"
@@ -20,8 +21,12 @@ public:
 	bool HandlePost(std::string, std::shared_ptr<HttpConnection>);
 private:
 	LogicSystem();
+	void PostTask(std::function<void()> task);
+	void PostJsonTask(std::shared_ptr<HttpConnection> connection,
+		std::function<std::string()> task);
 	std::map<std::string, HttpHandler> _post_handlers;
 	std::map<std::string, HttpHandler> _get_handlers;
+	boost::asio::thread_pool _business_pool;
 };
 
 

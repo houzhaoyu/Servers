@@ -12,8 +12,51 @@ RedisMgr::RedisMgr()
 	auto port = gCfgMgr["Redis"]["Port"];
 	auto pwd = gCfgMgr["Redis"]["Passwd"];
 	auto con_num = gCfgMgr["Redis"]["ConPoolNum"];
-	_con_pool.reset(new RedisConPool(atoi(con_num.c_str()), host.c_str(), atoi(port.c_str()), pwd.c_str()));
+	_con_pool.reset(new RedisConPool(atoi(con_num.c_str()), host, atoi(port.c_str()), pwd));
+	_async_client = std::make_unique<AsyncRedisClient>(host, atoi(port.c_str()), pwd);
 	Logger::Info("RedisMgr start! host = {}, port = {}, conn_num = {}", host, port, con_num);
+}
+
+void RedisMgr::AsyncCommand(std::vector<std::string> arguments, AsyncCallback callback)
+{
+	if (!_async_client || !_async_client->Command(std::move(arguments), std::move(callback)))
+	{
+		Logger::Debug("failed to enqueue hiredis async command");
+	}
+}
+
+void RedisMgr::AsyncGet(std::string key, AsyncCallback callback)
+{
+	AsyncCommand({ "GET", std::move(key) }, std::move(callback));
+}
+
+void RedisMgr::AsyncSet(std::string key, std::string value, AsyncCallback callback)
+{
+	AsyncCommand({ "SET", std::move(key), std::move(value) }, std::move(callback));
+}
+
+void RedisMgr::AsyncDel(std::string key, AsyncCallback callback)
+{
+	AsyncCommand({ "DEL", std::move(key) }, std::move(callback));
+}
+
+void RedisMgr::AsyncHGet(std::string key, std::string field, AsyncCallback callback)
+{
+	AsyncCommand({ "HGET", std::move(key), std::move(field) }, std::move(callback));
+}
+
+void RedisMgr::AsyncHSet(std::string key, std::string field, std::string value,
+	AsyncCallback callback)
+{
+	AsyncCommand({ "HSET", std::move(key), std::move(field), std::move(value) },
+		std::move(callback));
+}
+
+void RedisMgr::AsyncHIncrBy(std::string key, std::string field, long long increment,
+	AsyncCallback callback)
+{
+	AsyncCommand({ "HINCRBY", std::move(key), std::move(field), std::to_string(increment) },
+		std::move(callback));
 }
 
 RedisMgr::~RedisMgr()

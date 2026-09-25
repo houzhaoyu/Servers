@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "const.h"
+#include <atomic>
 
 //HTTP服务网络层
 class HttpConnection: public std::enable_shared_from_this<HttpConnection>
@@ -11,6 +12,11 @@ public:
 	HttpConnection(boost::asio::io_context&);
 	void Start();
 	tcp::socket& GetSocket();
+	// 异步业务开始前调用，阻止 HandleReq 立即发送尚未完成的响应。
+	void DeferResponse();
+	// 可从任意业务线程调用；实际响应构造和发送会投递回 socket executor。
+	void CompleteJsonResponse(std::string body,
+		http::status status = http::status::ok);
 
 private:
 	//使用Tcp实现http，需要实现定时检测的功能
@@ -30,6 +36,8 @@ private:
 
 	std::string _get_url;
 	std::unordered_map<std::string, std::string> _get_params;
+	bool _response_deferred{ false };
+	std::atomic<bool> _response_started{ false };
 };
 
 

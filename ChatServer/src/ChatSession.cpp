@@ -94,41 +94,33 @@ void ChatSession::NotifyChatImgRecv(const ::message::NotifyChatImgReq* request) 
 }
 
 // =========================
-// Redis清理逻辑（原有逻辑保留）
+// Redis 清理逻辑
 // =========================
 void ChatSession::DealExceptionSession()
 {
-    auto self = shared_from_this();
+	// 先从本机会话表移除，连接数会立即通过 HINCRBY 回落。
+	// Redis 端使用 Lua 比较 session id 后原子删除，无需同步分布式锁。
+	RemoveSelf();
+	if (_user_uid <= 0)
+	{
+		return;
+	}
 
-    std::string uid_str = std::to_string(_user_uid);
-    std::string lock_key = LOCK_PREFIX + uid_str;
-
-    auto identifier = RedisMgr::GetInstance()->acquireLock(
-        lock_key, LOCK_TIME_OUT, ACQUIRE_TIME_OUT
-    );
-
-    Defer defer([this, identifier, lock_key, self]() {
-        RemoveSelf();
-        if (!identifier.empty()) {
-            RedisMgr::GetInstance()->releaseLock(lock_key, identifier);
-        }
-        });
-
-    if (identifier.empty()) {
-        return;
-    }
-
-    std::string redis_session_id;
-    bool ok = RedisMgr::GetInstance()->Get(USER_SESSION_PREFIX + uid_str, redis_session_id);
-    if (!ok) return;
-
-    //首先判断当前redis中存储的sessionid是否是自己的id，不是就不删
-    if (redis_session_id != GetSessionId()) {
-        // 被踢下线 or 异地登录
-        return;
-    }
-
-    // 删除session信息
-    RedisMgr::GetInstance()->Del(USER_SESSION_PREFIX + uid_str);
-    RedisMgr::GetInstance()->Del(USER_IP_PREFIX + uid_str);
+	auto uid_str = std::to_string(_user_uid);
+	auto session_id = GetSessionId();
+	static const std::string clear_session_script =
+		"if redis.call('GET', KEYS[1]) == ARGV[1] then "
+		"redis.call('DEL', KEYS[1]); redis.call('DEL', KEYS[2]); return 1 "
+		"else return 0 end";
+	RedisMgr::GetInstance()->AsyncCommand(
+		{ "EVAL", clear_session_script, "2",
+		  USER_SESSION_PREFIX + uid_str, USER_IP_PREFIX + uid_str, session_id },
+		[session_id](RedisAsyncResult result)
+		{
+			if (!result.success)
+			{
+				Logger::Error("failed to clear redis session mapping, session = {}, error = {}",
+					session_id, result.error);
+			}
+		});
 }

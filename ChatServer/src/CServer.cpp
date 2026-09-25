@@ -33,9 +33,23 @@ void CServer::HandleAccept(std::shared_ptr<ChatSession> new_session, const boost
 	if (!error)
 	{
 		new_session->Start();
-		std::lock_guard<std::mutex> lock(_mutex);
-		_sessions.insert(std::make_pair(new_session->GetSessionId(), new_session));
-		Logger::Debug("new session accept, session id is {}, current session count is {}", new_session->GetSessionId(), _sessions.size());
+		std::size_t session_count = 0;
+		{
+			std::lock_guard<std::mutex> lock(_mutex);
+			_sessions.insert(std::make_pair(new_session->GetSessionId(), new_session));
+			session_count = _sessions.size();
+		}
+		Logger::Debug("new session accept, session id is {}, current session count is {}",
+			new_session->GetSessionId(), session_count);
+		auto self_name = ConfigMgr::Inst().GetSelfServer().GetValue("Name");
+		RedisMgr::GetInstance()->AsyncHIncrBy(LOGIN_COUNT, self_name, 1,
+			[self_name](RedisAsyncResult result)
+			{
+				if (!result.success)
+				{
+					Logger::Error("failed to increment connection count for {}: {}", self_name, result.error);
+				}
+			});
 	}
 	else
 	{
@@ -60,18 +74,41 @@ void CServer::StartAccept()
 // 根据session 的id删除session，并移除用户和session的关联
 void CServer::RemoveSession(std::string session_id)
 {
-
-	std::lock_guard<std::mutex> lock(_mutex);
-	if (_sessions.find(session_id) != _sessions.end())
+	bool removed = false;
+	std::size_t session_count = 0;
 	{
-		auto uid = _sessions[session_id]->GetUserId();
-
-		// 移除用户和session的关联
-		UserMgr::GetInstance()->RmvUserSession(uid, session_id);
+		std::lock_guard<std::mutex> lock(_mutex);
+		auto found = _sessions.find(session_id);
+		if (found != _sessions.end())
+		{
+			auto uid = found->second->GetUserId();
+			UserMgr::GetInstance()->RmvUserSession(uid, session_id);
+			_sessions.erase(found);
+			removed = true;
+		}
+		session_count = _sessions.size();
 	}
 
-	_sessions.erase(session_id);
-	Logger::Debug("session removed, session id is {}, current session count is {}", session_id, _sessions.size());
+	if (removed)
+	{
+		auto self_name = ConfigMgr::Inst().GetSelfServer().GetValue("Name");
+		// HINCRBY 与下限修正必须在同一 Lua 命令中原子完成。
+		// 若在异步回调中再 HSET 0，迟到回调可能覆盖之后新建连接的增量。
+		static const std::string decrement_script =
+			"local value = redis.call('HINCRBY', KEYS[1], ARGV[1], -1); "
+			"if value < 0 then redis.call('HSET', KEYS[1], ARGV[1], 0); return 0 end; "
+			"return value";
+		RedisMgr::GetInstance()->AsyncCommand(
+			{ "EVAL", decrement_script, "1", LOGIN_COUNT, self_name },
+			[self_name](RedisAsyncResult result)
+			{
+				if (!result.success)
+				{
+					Logger::Error("failed to decrement connection count for {}: {}", self_name, result.error);
+				}
+			});
+	}
+	Logger::Debug("session removed, session id is {}, current session count is {}", session_id, session_count);
 }
 
 // 根据用户获取session
@@ -131,10 +168,25 @@ void CServer::on_timer(const boost::system::error_code &ec)
 	// 设置session数量
 	auto self_name = ConfigMgr::Inst().GetSelfServer().GetValue("Name");
 	auto count_str = std::to_string(session_count);
-	RedisMgr::GetInstance()->HSet(LOGIN_COUNT, self_name, count_str);
+	RedisMgr::GetInstance()->AsyncHSet(LOGIN_COUNT, self_name, count_str,
+		[self_name](RedisAsyncResult result)
+		{
+			if (!result.success)
+			{
+				Logger::Error("failed to calibrate connection count for {}: {}", self_name, result.error);
+			}
+		});
 
 	// 上报心跳，续租服务注册信息（供 StatusServer 做健康检查与失活剔除）
-	RedisMgr::GetInstance()->Heartbeat(self_name);
+	RedisMgr::GetInstance()->AsyncCommand(
+		{ "EXPIRE", std::string(SERVER_INFO_PREFIX) + self_name, std::to_string(SERVER_INFO_TTL) },
+		[self_name](RedisAsyncResult result)
+		{
+			if (!result.success)
+			{
+				Logger::Error("failed to refresh registry heartbeat for {}: {}", self_name, result.error);
+			}
+		});
 
 	// 处理过期session, 单独提出，防止死锁
 	for (auto &session : _expired_sessions)

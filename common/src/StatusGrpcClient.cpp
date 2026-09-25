@@ -1,34 +1,49 @@
-﻿#include "StatusGrpcClient.h"
-#include "Defer.h"
+#include "StatusGrpcClient.h"
 #include "Logger.h"
 
-GetChatServerRsp StatusGrpcClient::GetChatServer(int uid)
+#include <chrono>
+
+namespace
 {
-    ClientContext context;
-    GetChatServerRsp reply;
-    GetChatServerReq request;
-    request.set_uid(uid);
-    auto stub = pool_->getConnection();
-    Status status = stub->GetChatServer(&context, request, &reply);
-    Defer defer([&stub, this]()
-                { pool_->returnConnection(std::move(stub)); });
-    if (status.ok())
-    {
-        return reply;
-    }
-    else
-    {
-        Logger::Error("GetChatServer rpc failed, grpc code: {}, message: {}",
-            static_cast<int>(status.error_code()), status.error_message());
-        reply.set_error(ErrorCodes::RPCFailed);
-        return reply;
-    }
+	struct GetChatServerCall
+	{
+		grpc::ClientContext context;
+		GetChatServerReq request;
+		GetChatServerRsp response;
+		StatusGrpcClient::GetChatServerCallback callback;
+	};
 }
+
 StatusGrpcClient::StatusGrpcClient()
 {
-    auto &gCfgMgr = ConfigMgr::Inst();
-    std::string host = gCfgMgr["StatusServer"]["Host"];
-    std::string port = gCfgMgr["StatusServer"]["Port"];
-    pool_.reset(new StatusConPool(5, host, port));
-    Logger::Info("StatusGrpcClient initialized with host: {}, port: {}", host, port);
+	auto &cfg = ConfigMgr::Inst();
+	const auto host = cfg["StatusServer"]["Host"];
+	const auto port = cfg["StatusServer"]["Port"];
+	auto channel = grpc::CreateChannel(host + ":" + port,
+		grpc::InsecureChannelCredentials());
+	stub_ = StatusService::NewStub(channel);
+	Logger::Info("StatusGrpcClient async client initialized with host: {}, port: {}", host, port);
+}
+
+void StatusGrpcClient::AsyncGetChatServer(int uid, GetChatServerCallback callback)
+{
+	auto call = std::make_shared<GetChatServerCall>();
+	call->request.set_uid(uid);
+	call->callback = std::move(callback);
+	call->context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(3));
+
+	stub_->async()->GetChatServer(&call->context, &call->request, &call->response,
+		[call](grpc::Status status) mutable
+		{
+			if (!status.ok())
+			{
+				Logger::Error("AsyncGetChatServer failed, grpc code: {}, message: {}",
+					static_cast<int>(status.error_code()), status.error_message());
+				call->response.set_error(ErrorCodes::RPCFailed);
+			}
+			if (call->callback)
+			{
+				call->callback(std::move(call->response));
+			}
+		});
 }

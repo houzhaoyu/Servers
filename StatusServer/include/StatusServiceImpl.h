@@ -1,52 +1,24 @@
 #pragma once
-#include <grpcpp/grpcpp.h>
+
 #include "message.grpc.pb.h"
-#include <mutex>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <grpcpp/grpcpp.h>
 
-using grpc::Server;
-using grpc::ServerBuilder;
-using grpc::ServerContext;
-using grpc::Status;
-using message::GetChatServerReq;
-using message::GetChatServerRsp;
-using message::LoginReq;
-using message::LoginRsp;
-using message::StatusService;
-
-class  ChatServer {
-public:
-	ChatServer() :host(""), port(""), name(""), con_count(0) {}
-	ChatServer(const ChatServer& cs) :host(cs.host), port(cs.port), name(cs.name), con_count(cs.con_count) {}
-	ChatServer& operator=(const ChatServer& cs) {
-		if (&cs == this) {
-			return *this;
-		}
-
-		host = cs.host;
-		name = cs.name;
-		port = cs.port;
-		con_count = cs.con_count;
-		return *this;
-	}
-	std::string host;
-	std::string port;
-	std::string name;
-	int con_count;
-};
-class StatusServiceImpl final : public StatusService::Service
+// CallbackService 允许 Redis 回调完成后再 Finish RPC，gRPC 工作线程不会等待 Redis。
+class StatusServiceImpl final : public message::StatusService::CallbackService
 {
 public:
-	StatusServiceImpl();
-	Status GetChatServer(ServerContext* context, const GetChatServerReq* request,
-		GetChatServerRsp* reply) override;
-	Status Login(ServerContext* context, const LoginReq* request,
-		LoginRsp* reply) override;
-private:
-	void insertToken(int uid, std::string token);
-	ChatServer getChatServer();
+	StatusServiceImpl() = default;
+
+	grpc::ServerUnaryReactor *GetChatServer(
+		grpc::CallbackServerContext *context,
+		const message::GetChatServerReq *request,
+		message::GetChatServerRsp *reply) override;
+
+	grpc::ServerUnaryReactor *Login(
+		grpc::CallbackServerContext *context,
+		const message::LoginReq *request,
+		message::LoginRsp *reply) override;
 };
-
-

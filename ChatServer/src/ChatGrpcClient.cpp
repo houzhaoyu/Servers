@@ -1,107 +1,171 @@
 #include "ChatGrpcClient.h"
-#include "RedisMgr.h"
 #include "ConfigMgr.h"
-#include "UserMgr.h"
-
-#include "ChatSession.h"
-#include "MysqlMgr.h"
 #include "Logger.h"
+#include "MysqlMgr.h"
+#include "RedisMgr.h"
+
+#include <chrono>
+
+namespace
+{
+	template <typename Request, typename Response, typename Callback>
+	struct AsyncChatCall
+	{
+		grpc::ClientContext context;
+		Request request;
+		Response response;
+		Callback callback;
+		std::shared_ptr<ChatService::Stub> stub;
+	};
+
+	template <typename Response, typename Callback>
+	void CompleteChatCall(const grpc::Status &status, Response &response,
+		Callback &callback, const char *method)
+	{
+		if (!status.ok())
+		{
+			Logger::Error("{} async rpc failed, grpc code: {}, message: {}", method,
+				static_cast<int>(status.error_code()), status.error_message());
+			response.set_error(ErrorCodes::RPCFailed);
+		}
+		if (callback)
+		{
+			callback(std::move(response));
+		}
+	}
+}
 
 ChatGrpcClient::ChatGrpcClient()
 {
 	auto self_name = ConfigMgr::Inst().GetSelfServer().GetValue("Name");
-
-	// 从 Redis 注册中心动态发现所有活跃的 ChatServer（替代静态 [PeerServer] 配置）
 	auto active_names = RedisMgr::GetInstance()->GetActiveServerNames();
 	for (auto &name : active_names)
 	{
-		// 跳过自身，peer 连接池仅用于跨服务器转发
-		if (name == self_name)
+		if (name != self_name)
 		{
-			continue;
+			GetOrCreateStub(name);
 		}
-
-		std::string host, port, rpcport;
-		if (!RedisMgr::GetInstance()->GetServerInfo(name, host, port, rpcport))
-		{
-			continue;
-		}
-
-		_pools[name] = std::make_unique<ChatConPool>(5, host, rpcport);
 	}
-
-	Logger::Info("ChatGrpcClient init success, peer pool count = {}", _pools.size());
+	Logger::Info("ChatGrpcClient async client initialized, peer count = {}", _stubs.size());
 }
 
-ChatConPool *ChatGrpcClient::GetOrCreatePool(const std::string &name)
+std::shared_ptr<ChatService::Stub> ChatGrpcClient::GetOrCreateStub(const std::string &name)
 {
 	{
-		std::lock_guard<std::mutex> lock(_pools_mtx);
-		auto it = _pools.find(name);
-		if (it != _pools.end())
+		std::lock_guard<std::mutex> lock(_stubs_mtx);
+		auto it = _stubs.find(name);
+		if (it != _stubs.end())
 		{
-			return it->second.get();
+			return it->second;
 		}
 	}
 
-	// 池不存在，从 Redis 现查目标节点地址（锁外执行，避免阻塞其他转发）
 	std::string host, port, rpcport;
 	if (!RedisMgr::GetInstance()->GetServerInfo(name, host, port, rpcport))
 	{
 		return nullptr;
 	}
-	auto pool = std::make_unique<ChatConPool>(5, host, rpcport);
+	auto channel = grpc::CreateChannel(host + ":" + rpcport,
+		grpc::InsecureChannelCredentials());
+	auto created = std::shared_ptr<ChatService::Stub>(ChatService::NewStub(channel).release());
 
-	std::lock_guard<std::mutex> lock(_pools_mtx);
-	auto it = _pools.find(name);
-	if (it != _pools.end())
-	{
-		// 双检：并发下可能已被其他线程建好
-		return it->second.get();
-	}
-	auto raw = pool.get();
-	_pools[name] = std::move(pool);
-	return raw;
+	std::lock_guard<std::mutex> lock(_stubs_mtx);
+	auto inserted = _stubs.emplace(name, created);
+	return inserted.first->second;
 }
 
-AddFriendRsp ChatGrpcClient::NotifyAddFriend(std::string server_name, const AddFriendReq &req)
+void ChatGrpcClient::AsyncNotifyAddFriend(std::string server_name, AddFriendReq request,
+	AddFriendCallback callback)
 {
-	Logger::Debug("NotifyAddFriend fromuid {} touid {}", req.applyuid(), req.touid());
-	AddFriendRsp rsp;
-	Defer defer([&rsp, &req]()
-				{
-		rsp.set_error(ErrorCodes::Success);
-		rsp.set_applyuid(req.applyuid());
-		rsp.set_touid(req.touid()); });
-
-	auto *pool = GetOrCreatePool(server_name);
-	if (pool == nullptr)
+	using Call = AsyncChatCall<AddFriendReq, AddFriendRsp, AddFriendCallback>;
+	auto call = std::make_shared<Call>();
+	call->stub = GetOrCreateStub(server_name);
+	call->request = std::move(request);
+	call->callback = std::move(callback);
+	call->response.set_applyuid(call->request.applyuid());
+	call->response.set_touid(call->request.touid());
+	if (!call->stub)
 	{
-		return rsp;
+		call->response.set_error(ErrorCodes::RPCFailed);
+		if (call->callback) call->callback(std::move(call->response));
+		return;
 	}
-
-	ClientContext context;
-	auto stub = pool->getConnection();
-	Defer defercon([&stub, pool]()
-				   { pool->returnConnection(std::move(stub)); });
-
-	Status status = stub->NotifyAddFriend(&context, req, &rsp);
-
-	if (!status.ok())
-	{
-		rsp.set_error(ErrorCodes::RPCFailed);
-		return rsp;
-	}
-
-	return rsp;
+	call->context.set_deadline(std::chrono::system_clock::now() + ASYNC_GRPC_TIMEOUT);
+	call->stub->async()->NotifyAddFriend(&call->context, &call->request, &call->response,
+		[call](grpc::Status status) mutable
+		{ CompleteChatCall(status, call->response, call->callback, "NotifyAddFriend"); });
 }
 
-bool ChatGrpcClient::GetBaseInfo(std::string base_key, UserIdType uid, std::shared_ptr<UserInfo> &userinfo)
+void ChatGrpcClient::AsyncNotifyAuthFriend(std::string server_name, AuthFriendReq request,
+	AuthFriendCallback callback)
 {
-	// 优先查redis中查询用户信息
-	std::string info_str = "";
-	bool b_base = RedisMgr::GetInstance()->Get(base_key, info_str);
-	if (b_base)
+	using Call = AsyncChatCall<AuthFriendReq, AuthFriendRsp, AuthFriendCallback>;
+	auto call = std::make_shared<Call>();
+	call->stub = GetOrCreateStub(server_name);
+	call->request = std::move(request);
+	call->callback = std::move(callback);
+	call->response.set_fromuid(call->request.fromuid());
+	call->response.set_touid(call->request.touid());
+	if (!call->stub)
+	{
+		call->response.set_error(ErrorCodes::RPCFailed);
+		if (call->callback) call->callback(std::move(call->response));
+		return;
+	}
+	call->context.set_deadline(std::chrono::system_clock::now() + ASYNC_GRPC_TIMEOUT);
+	call->stub->async()->NotifyAuthFriend(&call->context, &call->request, &call->response,
+		[call](grpc::Status status) mutable
+		{ CompleteChatCall(status, call->response, call->callback, "NotifyAuthFriend"); });
+}
+
+void ChatGrpcClient::AsyncNotifyTextChatMsg(std::string server_name, TextChatMsgReq request,
+	TextMessageCallback callback)
+{
+	using Call = AsyncChatCall<TextChatMsgReq, TextChatMsgRsp, TextMessageCallback>;
+	auto call = std::make_shared<Call>();
+	call->stub = GetOrCreateStub(server_name);
+	call->request = std::move(request);
+	call->callback = std::move(callback);
+	call->response.set_fromuid(call->request.fromuid());
+	call->response.set_touid(call->request.touid());
+	if (!call->stub)
+	{
+		call->response.set_error(ErrorCodes::RPCFailed);
+		if (call->callback) call->callback(std::move(call->response));
+		return;
+	}
+	call->context.set_deadline(std::chrono::system_clock::now() + ASYNC_GRPC_TIMEOUT);
+	call->stub->async()->NotifyTextChatMsg(&call->context, &call->request, &call->response,
+		[call](grpc::Status status) mutable
+		{ CompleteChatCall(status, call->response, call->callback, "NotifyTextChatMsg"); });
+}
+
+void ChatGrpcClient::AsyncNotifyKickUser(std::string server_name, KickUserReq request,
+	KickUserCallback callback)
+{
+	using Call = AsyncChatCall<KickUserReq, KickUserRsp, KickUserCallback>;
+	auto call = std::make_shared<Call>();
+	call->stub = GetOrCreateStub(server_name);
+	call->request = std::move(request);
+	call->callback = std::move(callback);
+	call->response.set_uid(call->request.uid());
+	if (!call->stub)
+	{
+		call->response.set_error(ErrorCodes::RPCFailed);
+		if (call->callback) call->callback(std::move(call->response));
+		return;
+	}
+	call->context.set_deadline(std::chrono::system_clock::now() + ASYNC_GRPC_TIMEOUT);
+	call->stub->async()->NotifyKickUser(&call->context, &call->request, &call->response,
+		[call](grpc::Status status) mutable
+		{ CompleteChatCall(status, call->response, call->callback, "NotifyKickUser"); });
+}
+
+bool ChatGrpcClient::GetBaseInfo(std::string base_key, UserIdType uid,
+	std::shared_ptr<UserInfo> &userinfo)
+{
+	std::string info_str;
+	if (RedisMgr::GetInstance()->Get(base_key, info_str))
 	{
 		Json::Reader reader;
 		Json::Value root;
@@ -114,135 +178,24 @@ bool ChatGrpcClient::GetBaseInfo(std::string base_key, UserIdType uid, std::shar
 		userinfo->desc = root["desc"].asString();
 		userinfo->sex = root["sex"].asInt();
 		userinfo->icon = root["icon"].asString();
-		Logger::Debug("User login uid is  {} name  is  pwd is  email is ", userinfo->uid, userinfo->name, userinfo->pwd, userinfo->email);
 		return true;
 	}
-	else
+
+	auto user_info = MysqlMgr::GetInstance()->GetUser(uid);
+	if (!user_info)
 	{
-		// redis中没有则查询mysql
-		// 查询数据库
-		std::shared_ptr<UserInfo> user_info = nullptr;
-		user_info = MysqlMgr::GetInstance()->GetUser(uid);
-		if (user_info == nullptr)
-		{
-			return false;
-		}
-
-		userinfo = user_info;
-
-		// 将数据库内容写入redis缓存
-		Json::Value redis_root;
-		redis_root["uid"] = uid;
-		redis_root["pwd"] = userinfo->pwd;
-		redis_root["name"] = userinfo->name;
-		redis_root["email"] = userinfo->email;
-		redis_root["nick"] = userinfo->nick;
-		redis_root["desc"] = userinfo->desc;
-		redis_root["sex"] = userinfo->sex;
-		redis_root["icon"] = userinfo->icon;
-		RedisMgr::GetInstance()->Set(base_key, redis_root.toStyledString());
-		return true;
+		return false;
 	}
-	return false;
-}
-
-AuthFriendRsp ChatGrpcClient::NotifyAuthFriend(std::string server_name, const AuthFriendReq &req)
-{
-	AuthFriendRsp rsp;
-	rsp.set_error(ErrorCodes::Success);
-
-	Defer defer([&rsp, &req]()
-				{
-		rsp.set_fromuid(req.fromuid());
-		rsp.set_touid(req.touid()); });
-
-	auto *pool = GetOrCreatePool(server_name);
-	if (pool == nullptr)
-	{
-		return rsp;
-	}
-
-	ClientContext context;
-	auto stub = pool->getConnection();
-	Defer defercon([&stub, pool]()
-				   { pool->returnConnection(std::move(stub)); });
-
-	Status status = stub->NotifyAuthFriend(&context, req, &rsp);
-
-	if (!status.ok())
-	{
-		rsp.set_error(ErrorCodes::RPCFailed);
-		return rsp;
-	}
-
-	return rsp;
-}
-
-TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_name,
-												 const TextChatMsgReq &req, const Json::Value &rtvalue)
-{
-
-	TextChatMsgRsp rsp;
-	rsp.set_error(ErrorCodes::Success);
-
-	Defer defer([&rsp, &req]()
-				{
-					rsp.set_fromuid(req.fromuid());
-					rsp.set_touid(req.touid());
-					for (const auto &text_data : req.textmsgs())
-					{
-						TextChatData *new_msg = rsp.add_textmsgs();
-						new_msg->set_unique_id(text_data.unique_id());
-						new_msg->set_msgcontent(text_data.msgcontent());
-					} });
-
-	auto *pool = GetOrCreatePool(server_name);
-	if (pool == nullptr)
-	{
-		return rsp;
-	}
-
-	ClientContext context;
-	auto stub = pool->getConnection();
-	Defer defercon([&stub, pool]()
-				   { pool->returnConnection(std::move(stub)); });
-
-	Status status = stub->NotifyTextChatMsg(&context, req, &rsp);
-
-	if (!status.ok())
-	{
-		rsp.set_error(ErrorCodes::RPCFailed);
-		return rsp;
-	}
-
-	return rsp;
-}
-
-KickUserRsp ChatGrpcClient::NotifyKickUser(std::string server_name, const KickUserReq &req)
-{
-	KickUserRsp rsp;
-	Defer defer([&rsp, &req]()
-				{
-		rsp.set_error(ErrorCodes::Success);
-		rsp.set_uid(req.uid()); });
-
-	auto *pool = GetOrCreatePool(server_name);
-	if (pool == nullptr)
-	{
-		return rsp;
-	}
-
-	ClientContext context;
-	auto stub = pool->getConnection();
-	Defer defercon([&stub, pool]()
-				   { pool->returnConnection(std::move(stub)); });
-	Status status = stub->NotifyKickUser(&context, req, &rsp);
-
-	if (!status.ok())
-	{
-		rsp.set_error(ErrorCodes::RPCFailed);
-		return rsp;
-	}
-
-	return rsp;
+	userinfo = user_info;
+	Json::Value redis_root;
+	redis_root["uid"] = uid;
+	redis_root["pwd"] = userinfo->pwd;
+	redis_root["name"] = userinfo->name;
+	redis_root["email"] = userinfo->email;
+	redis_root["nick"] = userinfo->nick;
+	redis_root["desc"] = userinfo->desc;
+	redis_root["sex"] = userinfo->sex;
+	redis_root["icon"] = userinfo->icon;
+	RedisMgr::GetInstance()->Set(base_key, redis_root.toStyledString());
+	return true;
 }

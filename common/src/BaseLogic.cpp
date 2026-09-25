@@ -33,7 +33,21 @@ void BaseLogic::PostTask(std::shared_ptr<LogicTask> task, const std::string& key
     auto& w = _workers[worker_idx];
     {
         std::lock_guard<std::mutex> lock(w->mtx);
-        w->queue.push(task);
+        w->queue.push({ std::move(task), {} });
+    }
+    w->cv.notify_one();
+}
+
+void BaseLogic::PostCallback(std::function<void()> callback, const std::string& key) {
+    size_t worker_idx = 0;
+    if (!key.empty()) {
+        worker_idx = std::hash<std::string>{}(key) % _workers.size();
+    }
+
+    auto& w = _workers[worker_idx];
+    {
+        std::lock_guard<std::mutex> lock(w->mtx);
+        w->queue.push({ nullptr, std::move(callback) });
     }
     w->cv.notify_one();
 }
@@ -46,10 +60,16 @@ void BaseLogic::WorkerLoop(int index) {
 
         if (_b_stop && w->queue.empty()) break;
 
-        auto task = w->queue.front();
+        auto item = std::move(w->queue.front());
         w->queue.pop();
         lock.unlock();
 
+        if (item.callback) {
+            item.callback();
+            continue;
+        }
+
+        auto& task = item.task;
         auto it = _handlers.find(task->recvnode->_msg_id);
         if (it != _handlers.end()) {
             it->second(task->session, it->first,

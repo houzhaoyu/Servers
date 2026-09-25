@@ -241,8 +241,10 @@ Status ChatServiceImpl::NotifyKickUser(::grpc::ServerContext *context,
 
 	// 在内存中则直接发送通知对方
 	session->NotifyOffline(uid);
-	// 清除旧的连接
-	_p_server->RemoveSession(session->GetSessionId());
+	// 关闭旧 socket 并清理会话。仅从 CServer map 移除会留下仍可读写的幽灵连接，
+	// 使 Redis 连接数低于真实 TCP 连接数。
+	session->Close();
+	session->DealExceptionSession();
 
 	return Status::OK;
 }

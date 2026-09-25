@@ -10,42 +10,35 @@
 #include <cstring>
 #include "FileInfo.h"
 #include "Logger.h"
+#include "AsyncRedisClient.h"
 
 class RedisConPool
 {
 public:
-	RedisConPool(size_t poolSize, const char *host, int port, const char *pwd)
+	RedisConPool(size_t poolSize, std::string host, int port, std::string pwd)
 		: poolSize_(poolSize), host_(host), port_(port), b_stop_(false), pwd_(pwd), counter_(0), fail_count_(0)
 	{
-		for (size_t i = 0; i < poolSize_; ++i)
-		{
-			auto *context = redisConnect(host, port);
-			if (context == nullptr || context->err != 0)
-			{
-				if (context != nullptr)
-				{
-					redisFree(context);
-				}
-				continue;
-			}
-
-			auto reply = (redisReply *)redisCommand(context, "AUTH %s", pwd);
-			if (reply->type == REDIS_REPLY_ERROR)
-			{
-				Logger::Error("RedisConPool auth failed: %s", reply->str);
-				// 执行成功 释放redisCommand执行后返回的redisReply所占用的内存
-				freeReplyObject(reply);
-				continue;
-			}
-
-			// 执行成功 释放redisCommand执行后返回的redisReply所占用的内存
-			freeReplyObject(reply);
-			Logger::Info("RedisConPool auth success");
-			connections_.push(context);
-		}
-
 		check_thread_ = std::thread([this]()
 									{
+			// 同步连接池在后台渐进建立，避免 RedisMgr 首次创建时串行等待全部连接。
+			for (size_t i = 0; i < poolSize_ && !b_stop_; ++i) {
+				auto *context = redisConnect(host_.c_str(), port_);
+				if (context == nullptr || context->err != 0) {
+					if (context) redisFree(context);
+					fail_count_++;
+					continue;
+				}
+				auto *reply = static_cast<redisReply *>(redisCommand(context, "AUTH %s", pwd_.c_str()));
+				if (!reply || reply->type == REDIS_REPLY_ERROR) {
+					if (reply) freeReplyObject(reply);
+					redisFree(context);
+					fail_count_++;
+					continue;
+				}
+				freeReplyObject(reply);
+				Logger::Info("RedisConPool auth success");
+				returnConnection(context);
+			}
 			while (!b_stop_) {
 				counter_++;
 				if (counter_ >= 60) {
@@ -114,6 +107,7 @@ public:
 		std::lock_guard<std::mutex> lock(mutex_);
 		if (b_stop_)
 		{
+			redisFree(context);
 			return;
 		}
 		connections_.push(context);
@@ -122,15 +116,21 @@ public:
 
 	void Close()
 	{
-		b_stop_ = true;
+		if (b_stop_.exchange(true))
+		{
+			return;
+		}
 		cond_.notify_all();
-		check_thread_.join();
+		if (check_thread_.joinable())
+		{
+			check_thread_.join();
+		}
 	}
 
 private:
 	bool reconnect()
 	{
-		auto context = redisConnect(host_, port_);
+		auto context = redisConnect(host_.c_str(), port_);
 		if (context == nullptr || context->err != 0)
 		{
 			if (context != nullptr)
@@ -140,7 +140,7 @@ private:
 			return false;
 		}
 
-		auto reply = (redisReply *)redisCommand(context, "AUTH %s", pwd_);
+		auto reply = (redisReply *)redisCommand(context, "AUTH %s", pwd_.c_str());
 		if (reply->type == REDIS_REPLY_ERROR)
 		{
 			Logger::Error("RedisConPool auth failed during reconnect: %s", reply->str);
@@ -267,7 +267,7 @@ private:
 			{
 				Logger::Error("Error keeping connection alive: %s", exp.what());
 				redisFree(context);
-				context = redisConnect(host_, port_);
+				context = redisConnect(host_.c_str(), port_);
 				if (context == nullptr || context->err != 0)
 				{
 					if (context != nullptr)
@@ -277,7 +277,7 @@ private:
 					continue;
 				}
 
-				auto reply = (redisReply *)redisCommand(context, "AUTH %s", pwd_);
+				auto reply = (redisReply *)redisCommand(context, "AUTH %s", pwd_.c_str());
 				if (reply->type == REDIS_REPLY_ERROR)
 				{
 					Logger::Error("RedisConPool auth failed during reconnect: %s", reply->str);
@@ -295,8 +295,8 @@ private:
 	}
 	std::atomic<bool> b_stop_;
 	size_t poolSize_;
-	const char *host_;
-	const char *pwd_;
+	std::string host_;
+	std::string pwd_;
 	int port_;
 	std::queue<redisContext *> connections_;
 	std::atomic<int> fail_count_;
@@ -313,6 +313,16 @@ class RedisMgr : public Singleton<RedisMgr>,
 
 public:
 	~RedisMgr();
+	using AsyncCallback = AsyncRedisClient::Callback;
+	void AsyncCommand(std::vector<std::string> arguments, AsyncCallback callback);
+	void AsyncGet(std::string key, AsyncCallback callback);
+	void AsyncSet(std::string key, std::string value, AsyncCallback callback = {});
+	void AsyncDel(std::string key, AsyncCallback callback = {});
+	void AsyncHGet(std::string key, std::string field, AsyncCallback callback);
+	void AsyncHSet(std::string key, std::string field, std::string value,
+		AsyncCallback callback = {});
+	void AsyncHIncrBy(std::string key, std::string field, long long increment,
+		AsyncCallback callback = {});
 	bool Get(const std::string &key, std::string &value);
 	bool Set(const std::string &key, const std::string &value);
 	bool SetExp(const std::string &key, const std::string &value, int expire_seconds);
@@ -328,6 +338,10 @@ public:
 	bool ExistsKey(const std::string &key);
 	void Close()
 	{
+		if (_async_client)
+		{
+			_async_client->Close();
+		}
 		if (_con_pool)
 		{
 			_con_pool->Close();
@@ -362,4 +376,5 @@ public:
 private:
 	RedisMgr();
 	std::unique_ptr<RedisConPool> _con_pool;
+	std::unique_ptr<AsyncRedisClient> _async_client;
 };

@@ -1,91 +1,50 @@
-﻿#include "VerifyGrpcClient.h"
+#include "VerifyGrpcClient.h"
 #include "ConfigMgr.h"
+#include "Logger.h"
 
-RPConPool::RPConPool(size_t poolSize, std::string host, std::string port)
-	: poolSize_(poolSize),
-	host_(host),
-	port_(port),
-	b_stop_(false) 
+#include <chrono>
+
+namespace
 {
-	for (size_t i = 0; i < poolSize_; ++i) 
+	struct VerifyCall
 	{
-		std::shared_ptr<Channel> channel = grpc::CreateChannel(host + ":" + port,
-			grpc::InsecureChannelCredentials());
-
-		connections_.push(VerifyService::NewStub(channel));
-	}
+		grpc::ClientContext context;
+		GetVerifyReq request;
+		GetVerifyRsp response;
+		VerifyGrpcClient::VerifyCallback callback;
+	};
 }
 
-RPConPool::~RPConPool() 
+VerifyGrpcClient::VerifyGrpcClient()
 {
-	std::lock_guard<std::mutex> lock(mutex_);
-	Close();
-	while (!connections_.empty()) {
-		connections_.pop();
-	}
+	auto &cfg = ConfigMgr::Inst();
+	const auto host = cfg["VerifyServer"]["Host"];
+	const auto port = cfg["VerifyServer"]["Port"];
+	auto channel = grpc::CreateChannel(host + ":" + port,
+		grpc::InsecureChannelCredentials());
+	stub_ = VerifyService::NewStub(channel);
+	Logger::Info("VerifyGrpcClient async client initialized with host: {}, port: {}", host, port);
 }
 
-std::unique_ptr<VerifyService::Stub> RPConPool::getConnection() 
+void VerifyGrpcClient::AsyncGetVerifyCode(std::string email, VerifyCallback callback)
 {
-	std::unique_lock<std::mutex> lock(mutex_);
-	cond_.wait(lock, [this] {
-		if (b_stop_) 
+	auto call = std::make_shared<VerifyCall>();
+	call->request.set_email(std::move(email));
+	call->callback = std::move(callback);
+	call->context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(3));
+
+	stub_->async()->GetVerifyCode(&call->context, &call->request, &call->response,
+		[call](grpc::Status status) mutable
 		{
-			return true;
-		}
-		return !connections_.empty();
+			if (!status.ok())
+			{
+				Logger::Error("AsyncGetVerifyCode failed, grpc code: {}, message: {}",
+					static_cast<int>(status.error_code()), status.error_message());
+				call->response.set_error(ErrorCodes::RPCFailed);
+			}
+			if (call->callback)
+			{
+				call->callback(std::move(call->response));
+			}
 		});
-	//如果停止则直接返回空指针
-	if (b_stop_) 
-	{
-		return nullptr;
-	}
-	auto context = std::move(connections_.front());
-	connections_.pop();
-	return context;
 }
-
-void RPConPool::returnConnection(std::unique_ptr<VerifyService::Stub> context) 
-{
-	std::lock_guard<std::mutex> lock(mutex_);
-	if (b_stop_) {
-		return;
-	}
-	connections_.push(std::move(context));
-	cond_.notify_one();
-}
-
-void RPConPool::Close() 
-{
-	b_stop_ = true;
-	cond_.notify_all();
-}
-
-VerifyGrpcClient::VerifyGrpcClient() {
-	auto& gCfgMgr = ConfigMgr::Inst();
-	std::string host = gCfgMgr["VerifyServer"]["Host"];
-	std::string port = gCfgMgr["VerifyServer"]["Port"];
-	pool_.reset(new RPConPool(RPC_CONPOOL_SIZE, host, port));
-}
-
-GetVerifyRsp VerifyGrpcClient::GetVerifyCode(std::string email) {
-	ClientContext context;
-	GetVerifyRsp reply;
-	GetVerifyReq request;
-	request.set_email(email);
-
-	auto stub = pool_->getConnection();
-	Status status = stub->GetVerifyCode(&context, request, &reply);
-
-	if (status.ok()) {
-		pool_->returnConnection(std::move(stub));
-		return reply;
-	}
-	else {
-		pool_->returnConnection(std::move(stub));
-		reply.set_error(ErrorCodes::RPCFailed);
-		return reply;
-	}
-}
-
-
